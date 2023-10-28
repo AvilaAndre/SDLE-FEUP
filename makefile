@@ -1,27 +1,22 @@
 BIN = bin/
 
-all: build
+all: clean $(BIN)/database_node $(BIN)/orchestrator
 
 debug_db_node:
 	go run database_node/main.go
 
-run_db_node:
-	./$(BIN)/db_node
+run_db_node: $(BIN)/database_node
+	./$(BIN)/db_node $(PORT)
 
-run_orchestrator:
-	./$(BIN)/orchestrator
+run_orchestrator: $(BIN)/orchestrator
+	./$(BIN)/orchestrator $(PORT)
 
-.PHONY: build_db_node
-build_db_node:
+$(BIN)/database_node:
 	go build -o $(BIN)/db_node database_node/main.go
 
-.PHONY: build_orchestrator
-build_orchestrator:
+$(BIN)/orchestrator:
 	go build -o $(BIN)/orchestrator orchestrator/main.go
 
-
-.PHONY: build
-build: build_db_node build_orchestrator
 
 .PHONY: clean
 clean:
