@@ -6,6 +6,7 @@ import (
 	// "bufio"
 	"os"
 	"github.com/zeromq/goczmq"
+	utils "sdle.com/mod/utils"
 )
 
 
@@ -45,18 +46,12 @@ func main() {
 		switch u {
 			// Listens for new connections
 		case new_connection_listener:
-			msg, err := u.RecvMessage()
-		
-			if (err != nil) {
-				log.Fatal(err)
-			}
+			var msg [][]byte = utils.ReceiveMessage(u)
 
 			log.Printf(string(msg[0]))
 
-			var ack []byte = []byte("ACK")
-			u.SendMessage([][]byte{ack})
+			utils.SendMessage(u, "ACK")
 			return
 		}
-
 	}
 }

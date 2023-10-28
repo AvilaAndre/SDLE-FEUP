@@ -6,6 +6,7 @@ import (
 	"os"
 	// "bufio"
 	"github.com/zeromq/goczmq"
+	utils "sdle.com/mod/utils"
 )
 
 
@@ -29,15 +30,9 @@ func main() {
 		log.Fatal(r1)
 	}
 	
+	utils.SendMessage(orchestrator, fmt.Sprintf("new_connection %s", "127.0.0.1"))
 
-	var msg []byte = []byte(fmt.Sprintf("new_connection %s", "127.0.0.1"))
-	orchestrator.SendMessage([][]byte{msg})
-
-	ack, err := orchestrator.RecvMessage()
-	
-	if (err != nil) {
-		log.Fatal(err)
-	}
+	ack := utils.ReceiveMessage(orchestrator)
 
 	fmt.Println(string(ack[0]));
 }
