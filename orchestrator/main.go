@@ -11,6 +11,10 @@ import (
 
 
 func main() {
+	var db_nodes []DatabaseNode
+	// var passive_orchestrator int
+
+	log.Println(utils.GetOutboundIP())
 
 	argsWithoutProg := os.Args[1:];
 
@@ -35,21 +39,23 @@ func main() {
 
 	poller, err := goczmq.NewPoller(new_connection_listener)
 
-
 	if (err != nil) {
 		log.Fatal(err)
 	}
 
+	
+	db_nodes = append(db_nodes, DatabaseNode{Id: 1, Sock: new_connection_listener})
+	
 	for {
 		u := poller.Wait(-1)
-
+		
 		switch u {
 			// Listens for new connections
 		case new_connection_listener:
 			var msg [][]byte = utils.ReceiveMessage(u)
-
+			
 			log.Printf(string(msg[0]))
-
+			
 			utils.SendMessage(u, "ACK")
 			return
 		}

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	// "bufio"
-	"github.com/zeromq/goczmq"
-	utils "sdle.com/mod/utils"
 )
 
 
@@ -17,22 +15,14 @@ func main() {
 		log.Fatal("A port must be specified to initialize a database node.")
 	}
 
-	var orchestrator_port string = argsWithoutProg[0];
+	var orchestrator_endpoint string = argsWithoutProg[0];
+	var orchestrator_port string = argsWithoutProg[1];
 
 	fmt.Print("Hello World from a Database Node!\n");
 
-	orchestrator := goczmq.NewSock(goczmq.Req)
-	defer orchestrator.Destroy()
-
-	r1 := orchestrator.Connect("tcp://localhost:" + orchestrator_port)
-
-	if r1 != nil {
-		log.Fatal(r1)
+	if ConnectToOrchestrator(orchestrator_endpoint, orchestrator_port) {
+		log.Println("Connected to orchestrator sucessfully")
+	} else {
+		log.Println("Failed to connect to the orchestrator")
 	}
-	
-	utils.SendMessage(orchestrator, fmt.Sprintf("new_connection %s", "127.0.0.1"))
-
-	ack := utils.ReceiveMessage(orchestrator)
-
-	fmt.Println(string(ack[0]));
 }
