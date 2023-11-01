@@ -2,19 +2,22 @@ package main
 
 import (
 	"log"
-	"fmt"
 	// "bufio"
 	"os"
+
 	"github.com/zeromq/goczmq"
 	utils "sdle.com/mod/utils"
 )
 
 
+var listenerPort = "6873"
+var db_nodes []*DatabaseNode
+
+
 func main() {
-	var db_nodes []DatabaseNode
 	// var passive_orchestrator int
 
-	log.Println(utils.GetOutboundIP())
+	log.Println("Started Orchestrator from IP " + utils.GetOutboundIP().String())
 
 	argsWithoutProg := os.Args[1:];
 
@@ -22,14 +25,10 @@ func main() {
 		log.Fatal("A port must be specified to initialize an orchestrator.")
 	}
 
-	var listenerPort string = argsWithoutProg[0];
-
-	fmt.Print("Hello World from the Orchestrator!\n");
-
+	listenerPort = argsWithoutProg[0];
 
 	new_connection_listener := goczmq.NewSock(goczmq.Rep)
 	defer new_connection_listener.Destroy()
-
 
 	_, r1 := new_connection_listener.Bind("tcp://*:" + listenerPort)
 
@@ -42,9 +41,6 @@ func main() {
 	if (err != nil) {
 		log.Fatal(err)
 	}
-
-	
-	db_nodes = append(db_nodes, DatabaseNode{Id: 1, Sock: new_connection_listener})
 	
 	for {
 		u := poller.Wait(-1)
@@ -52,12 +48,10 @@ func main() {
 		switch u {
 			// Listens for new connections
 		case new_connection_listener:
-			var msg [][]byte = utils.ReceiveMessage(u)
-			
-			log.Printf(string(msg[0]))
-			
-			utils.SendMessage(u, "ACK")
-			return
+			var new_db_node *DatabaseNode = HandleNewConnection(u)
+			db_nodes = append(db_nodes, new_db_node)
+
+			utils.SendMessage(db_nodes[0].GetSock(), [][]byte{[]byte("hey")})
 		}
 	}
 }

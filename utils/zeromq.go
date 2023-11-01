@@ -2,8 +2,9 @@ package utils
 
 import (
 	"log"
-	"github.com/zeromq/goczmq"
 	"net"
+
+	"github.com/zeromq/goczmq"
 )
 
 func ConnectSocketTimeout(socket *goczmq.Sock, endpoint string, port string, timeout int) bool {
@@ -45,9 +46,8 @@ func ReceiveMessageTimeout(socket *goczmq.Sock, timeout int) [][]byte {
 	return msg
 }
 
-func SendMessage(socket *goczmq.Sock, message_string string) {
-	var message []byte = []byte(message_string)
-	err := socket.SendMessage([][]byte{message})
+func SendMessage(socket *goczmq.Sock, message [][]byte) {
+	err := socket.SendMessage(message)
 	if (err != nil) {
 		log.Fatal(err)
 	}
