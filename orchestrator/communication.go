@@ -46,5 +46,5 @@ func HandleNewConnection(socket *goczmq.Sock) *DatabaseNode {
 		return nil
 	}
 
-	return NewDatabaseNode(1, endpoint, port, db_node_socket) //TODO: Handle Id
+	return NewDatabaseNode(endpoint, port, db_node_socket)
 }

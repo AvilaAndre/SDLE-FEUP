@@ -11,7 +11,7 @@ import (
 
 
 var listenerPort = "6873"
-var db_nodes []*DatabaseNode
+var cluster DatabaseClusterOrganization = *NewDatabaseClusterOrganization()
 
 
 func main() {
@@ -49,9 +49,9 @@ func main() {
 			// Listens for new connections
 		case new_connection_listener:
 			var new_db_node *DatabaseNode = HandleNewConnection(u)
-			db_nodes = append(db_nodes, new_db_node)
-
-			utils.SendMessage(db_nodes[0].GetSock(), [][]byte{[]byte("hey")})
+			
+			// Add new DatabaseNode to the respective array
+			cluster.AddNewDatabaseNode(new_db_node)
 		}
 	}
 }

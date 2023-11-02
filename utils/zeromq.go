@@ -53,6 +53,15 @@ func SendMessage(socket *goczmq.Sock, message [][]byte) {
 	}
 }
 
+func SendMessageAndWaitAck(socket *goczmq.Sock, message [][]byte) {
+	err := socket.SendMessage(message)
+	if (err != nil) {
+		log.Fatal(err)
+	}
+
+	ReceiveMessage(socket) // TODO: Timeout
+}
+
 // Get preferred outbound ip of this machine
 func GetOutboundIP() net.IP {
     conn, err := net.Dial("udp", "8.8.8.8:80")

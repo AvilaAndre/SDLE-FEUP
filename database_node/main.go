@@ -7,6 +7,7 @@ import (
 
 	// "bufio"
 	"github.com/zeromq/goczmq"
+	"sdle.com/mod/protocol"
 	utils "sdle.com/mod/utils"
 )
 
@@ -15,11 +16,15 @@ var own_endpoint = utils.GetOutboundIP()
 var orchestrator_connect_endpoint = "localhost"
 var orchestrator_connect_port = "6873"
 
-var dataPort = "6875"
-var dataSocket *goczmq.Sock = goczmq.NewSock(goczmq.Rep)
+var data_port = "6875"
+var data_socket *goczmq.Sock = goczmq.NewSock(goczmq.Rep)
+
+var own_id int = -1
+var left_neighbour_socket *goczmq.Sock = nil
+var right_neighbour_socket *goczmq.Sock = nil
 
 func main() {
-	defer dataSocket.Destroy()
+	defer data_socket.Destroy()
 
 	argsWithoutProg := os.Args[1:];
 
@@ -29,11 +34,11 @@ func main() {
 
 	orchestrator_connect_endpoint = argsWithoutProg[0];
 	orchestrator_connect_port = argsWithoutProg[1];
-	dataPort = argsWithoutProg[2];
+	data_port = argsWithoutProg[2];
 
 	fmt.Print("Hello World from a Database Node!\n");
 
-	_, r1 := dataSocket.Bind("tcp://*:" + dataPort)
+	_, r1 := data_socket.Bind("tcp://*:" + data_port)
 	
 	if r1 != nil {
 		log.Fatal(r1)
@@ -46,7 +51,7 @@ func main() {
 		return
 	}
 
-	poller, err := goczmq.NewPoller(dataSocket)
+	poller, err := goczmq.NewPoller(data_socket)
 
 	if (err != nil) {
 		log.Fatal(err)
@@ -57,9 +62,16 @@ func main() {
 		
 		switch u {
 			// Listens for new connections
-		case dataSocket:
+		case data_socket:
 			var msg [][]byte = utils.ReceiveMessage(u)
-			log.Println(string(msg[0]))
+
+			// Messages should have a header
+			if (len(msg) < 1) {
+				utils.SendMessage(u, protocol.DenyMessage())
+			}
+
+			HandleNewMessage(u, msg)
 		}
 	}
 }
+

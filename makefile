@@ -22,3 +22,8 @@ $(BIN)/orchestrator:
 .PHONY: clean
 clean:
 	rm -f $(BIN)/*
+
+
+
+# make run_db_node CON_ENDPOINT=192.168.1.70 CON_PORT=6873 DATA_PORT=6878
+# make run_orchestrator CON_PORT=6873
