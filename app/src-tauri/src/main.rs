@@ -63,7 +63,7 @@ fn get_mock_data() -> Result<ListData, String> {
 
   let mut rng = rand::thread_rng();
 
-  let n1: u8 = rng.gen_range(2..10);
+  let n1: u8 = rng.gen_range(2..30);
 
   let mut i = 0;
 
