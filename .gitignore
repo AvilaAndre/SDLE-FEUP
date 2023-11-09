@@ -1,2 +1,14 @@
 bin/
 bin/*
+app/.DS_Store
+app/node_modules
+app/build
+app/.svelte-kit
+app/package
+app/.env
+app/.env.*
+app/!.env.example
+app/.vercel
+app/.output
+app/vite.config.js.timestamp-*
+app/vite.config.ts.timestamp-*
