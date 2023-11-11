@@ -193,3 +193,13 @@ pub fn add_item_to_list(list_id: i32, name: &str, qtd: i32, db: &Connection) -> 
 
     Ok(true)
 }
+
+/**
+ *  Updates a specified list's title
+ * */
+pub fn update_list_title(list_id: i32, title: &str, db: &Connection) -> Result<bool, rusqlite::Error> {
+    let mut statement = db.prepare("UPDATE shopping_list SET title = @new_title WHERE list_id = @list_id")?;
+    statement.execute(named_params!{"@new_title": title, "@list_id": list_id})?;
+
+    Ok(true)
+}

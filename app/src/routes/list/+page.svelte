@@ -65,6 +65,23 @@
 
         nextItemValue = "";
     };
+
+    const updateListTitle = async () => {
+        await invoke("update_list_title", {
+            listId: data.list_info.list_id,
+            title: data.list_info.title,
+        }).then((value: any) => {
+            // TODO: if not value then the list title did not update
+        });
+    };
+
+    var typewatch = (function () {
+        var timer = 0;
+        return function (callback: TimerHandler, ms: number | undefined) {
+            clearTimeout(timer);
+            timer = setTimeout(callback, ms);
+        };
+    })();
 </script>
 
 <svelte:head>
@@ -132,7 +149,17 @@
     </div>
     <div class="h-fit w-full">
         <div class="w-[36rem] mx-auto">
-            <h1 class="text-4xl">{data.list_info.title}</h1>
+            <input
+                type="text"
+                name="ListName"
+                id="listName"
+                bind:value={data.list_info.title}
+                on:keyup={() =>
+                    typewatch(() => {
+                        updateListTitle();
+                    }, 1000)}
+                class="text-4xl hidden-placeholder focus-visible:outline-none"
+            />
             {#if data.list_info.share_id}
                 <h4 class="text-sm text-slate-700 pl-1">
                     {data.list_info.share_id}

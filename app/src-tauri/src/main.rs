@@ -17,7 +17,7 @@ use data_types::*;
 fn main(){
     tauri::Builder::default()
     .manage(AppState { db: Default::default() })
-    .invoke_handler(tauri::generate_handler![my_custom_command, get_lists, create_list, get_shopping_list, add_item_to_list])
+    .invoke_handler(tauri::generate_handler![my_custom_command, get_lists, create_list, get_shopping_list, add_item_to_list, update_list_title])
     .setup(|app| {
         let handle = app.handle();
 
@@ -83,5 +83,16 @@ fn add_item_to_list(app_handle: AppHandle, listId: i32, name: &str, qtd: i32) ->
         }
         Ok(success) => return success,
         
+    }
+}
+
+#[tauri::command]
+fn update_list_title(app_handle: AppHandle, listId: i32, title: &str) -> bool {
+    match app_handle.db(|db| database::update_list_title(listId, title, db)) {
+        Err(e) => {
+            println!("error creating list item: {e:?}");
+            return false;
+        }
+        Ok(success) => return success,
     }
 }
