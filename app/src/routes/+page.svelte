@@ -1,45 +1,28 @@
 <script lang="ts">
+    import { goto } from "$app/navigation";
     import ListCard from "$lib/components/ListCard.svelte";
     import AddIcon from "$lib/icons/AddIcon.svelte";
+    import { invoke } from "@tauri-apps/api/tauri";
 
-    type List = {
+    type ListInfo = {
         title: string;
         id: string;
         shared: boolean;
     };
 
-    const lists: List[] = [
-        {
-            title: "List1",
-            id: "99e856ff-fa4e-4269-b087-fbf91a226f3c",
-            shared: true,
-        },
-        {
-            title: "List2",
-            id: "671f3ff3-748b-4016-afc1-b6d4a0bdfab1",
-            shared: true,
-        },
-        {
-            title: "List3",
-            id: "6b18023b-ed3f-4b93-808e-966b2d8dfb47",
-            shared: false,
-        },
-        {
-            title: "List4",
-            id: "d977fc87-e5c1-4b06-bc21-42b553ebf5d0",
-            shared: false,
-        },
-        {
-            title: "List5",
-            id: "bff4b478-c9f2-44db-b8fa-402302810bf9",
-            shared: false,
-        },
-        {
-            title: "List6",
-            id: "916859a7-596d-4192-b132-f7c37d1d8bd0",
-            shared: true,
-        },
-    ];
+    type ListPageData = {
+        lists: ListInfo[];
+    };
+
+    export let data: ListPageData;
+
+    const lists = data.lists;
+
+    const createList = async () => {
+        await invoke("create_list").then((value) => {
+            goto("/list?id=" + value);
+        });
+    };
 </script>
 
 <svelte:head>
@@ -48,8 +31,17 @@
 </svelte:head>
 
 <section class="flex flex-col justify-center items-center">
-    <div class="text-xl m-2">Lists</div>
-    <div>New List Join List</div>
+    <div class="text-2xl m-2">Quantum List</div>
+    <div>
+        <button
+            type="button"
+            class="inline-flex bg-sunglow p-1 rounded-sm"
+            on:click={createList}
+        >
+            <AddIcon className="w-6" />
+            <p>Create List</p>
+        </button>
+    </div>
     <div class="grid grid-cols-3 gap-4">
         {#each lists as list}
             <ListCard title={list.title} id={list.id} shared={list.shared} />
