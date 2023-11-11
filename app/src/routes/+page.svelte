@@ -5,8 +5,9 @@
     import { invoke } from "@tauri-apps/api/tauri";
 
     type ListInfo = {
+        list_id: number;
         title: string;
-        id: string;
+        share_id: string;
         shared: boolean;
     };
 
@@ -44,7 +45,12 @@
     </div>
     <div class="grid grid-cols-3 gap-4">
         {#each lists as list}
-            <ListCard title={list.title} id={list.id} shared={list.shared} />
+            <ListCard
+                title={list.title}
+                id={list.list_id}
+                share_id={list.share_id}
+                shared={list.shared}
+            />
         {/each}
     </div>
 </section>

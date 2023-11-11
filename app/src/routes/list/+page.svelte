@@ -4,16 +4,13 @@
     import UploadIcon from "$lib/icons/UploadIcon.svelte";
     import DownloadIcon from "$lib/icons/DownloadIcon.svelte";
     import PublishIcon from "$lib/icons/PublishIcon.svelte";
+    import type { ShoppingListData } from "$lib/types";
+    import { invoke } from "@tauri-apps/api/tauri";
 
-    type ListPageData = {
-        title: string;
-        id: string;
-        items: string[];
-    };
-
-    export let data: ListPageData;
+    export let data: ShoppingListData;
 
     let nextItem: any;
+    let nextItemValue: string;
 
     let lastUpdate: number = 20;
 
@@ -44,12 +41,29 @@
     };
 
     const selectNextItem = () => {
-        nextItem.select();
+        // This line prevents the nextItem text from being selected when pressing spacebar while writing
+        if (document.activeElement?.id != nextItem.id) nextItem.select();
     };
 
-    const addNewItem = () => {
-        // TODO: Add new item to Shopping List logic
-        console.log("add new item");
+    const addNewItem = async () => {
+        await invoke("add_item_to_list", {
+            listId: data.list_info.list_id,
+            name: nextItemValue,
+            qtd: 1,
+        }).then((value: any) => {
+            if (value) {
+                data.items.push({
+                    id: 0,
+                    name: nextItemValue,
+                    list_id: data.list_info.list_id,
+                    qtd: 1,
+                });
+                // to activate svelte's reactivity
+                data.items = data.items;
+            }
+        });
+
+        nextItemValue = "";
     };
 </script>
 
@@ -118,8 +132,12 @@
     </div>
     <div class="h-fit w-full">
         <div class="w-[36rem] mx-auto">
-            <h1 class="text-4xl">{data.title}</h1>
-            <h4 class="text-sm text-slate-700 pl-1">{data.id}</h4>
+            <h1 class="text-4xl">{data.list_info.title}</h1>
+            {#if data.list_info.share_id}
+                <h4 class="text-sm text-slate-700 pl-1">
+                    {data.list_info.share_id}
+                </h4>
+            {/if}
         </div>
         <br />
         <ul>
@@ -128,20 +146,27 @@
                     <div
                         class="text-lg w-[36rem] mx-auto pl-2 group-hover:bg-gray-100 hover:cursor-pointer"
                     >
-                        {item}
+                        {item.name}
                     </div>
                 </li>
             {/each}
-            <button class="w-full cursor-text" on:click={selectNextItem}>
-                <input
-                    type="text"
-                    bind:this={nextItem}
-                    name="newItem"
-                    id="newItem"
-                    class="text-lg w-[36rem] pl-2 hidden-placeholder focus-visible:outline-none"
-                    placeholder="Input new item name"
-                />
-            </button>
+            <form on:submit|preventDefault={addNewItem}>
+                <button
+                    type="button"
+                    class="w-full cursor-text"
+                    on:click={selectNextItem}
+                >
+                    <input
+                        type="text"
+                        bind:this={nextItem}
+                        bind:value={nextItemValue}
+                        name="newItem"
+                        id="newItem"
+                        class="text-lg w-[36rem] pl-2 hidden-placeholder focus-visible:outline-none"
+                        placeholder="Input new item name"
+                    />
+                </button>
+            </form>
         </ul>
     </div>
     <button

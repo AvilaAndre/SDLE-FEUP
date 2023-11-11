@@ -5,7 +5,7 @@ use rusqlite::{Connection, named_params};
 use tauri::AppHandle;
 use std::fs;
 
-use crate::data_types::{ListInfo};
+use crate::data_types::*;
 
 const CURRENT_DB_VERSION: u32 = 1;
 
@@ -46,7 +46,7 @@ pub fn upgrade_database_if_needed(db: &mut Connection, existing_version: u32) ->
                 shared INTEGER NOT NULL
             );
             CREATE TABLE IF NOT EXISTS list_item (
-                id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 list_id INTEGER NOT NULL REFERENCES shopping_list(list_id),
                 name TEXT NOT NULL,
                 qtd INTEGER NOT NULL
@@ -105,6 +105,7 @@ pub fn get_all_lists(db: &Connection) -> Result<Vec<ListInfo>, rusqlite::Error> 
         }
 
         let new_item: ListInfo = ListInfo {
+            list_id: row.get("list_id")?,
             title: row.get("title")?,
             share_id,
             shared
@@ -115,4 +116,80 @@ pub fn get_all_lists(db: &Connection) -> Result<Vec<ListInfo>, rusqlite::Error> 
     }
     
     Ok(items)
+}
+
+pub fn get_list(id: i32, db: &Connection) -> Result<Option<ShoppingListData>, rusqlite::Error> {
+    let mut statement = db.prepare("SELECT * FROM shopping_list WHERE list_id = @list_id LIMIT 1")?;
+    let mut rows = statement.query(named_params! { "@list_id": id })?;
+
+    let mut list_info: Option<ListInfo> = None;
+    
+    while let Some(row) = rows.next()? {
+        let share_id: Option<String>;
+        match row.get("share_id") {
+            Ok(value) => share_id = Some(value),
+            Err(_) => share_id = None
+        }
+        
+        let shared: bool;
+        match row.get("shared") {
+            Ok(0) => shared = false,
+            Ok(1) => shared = true,
+            Ok(value) => {
+                println!("shared column value should be 1 or 0, it is {}. Defaulting to true", value);
+                shared = false
+            }
+            Err(e) => {
+                println!("shared column value error: {e:?}");
+                shared = false
+            }
+        }
+        
+        list_info = Some(ListInfo {
+            list_id: row.get("list_id")?,
+            title: row.get("title")?,
+            share_id,
+            shared
+        });
+    }
+
+    
+    let mut statement2 = db.prepare("SELECT * FROM list_item WHERE list_id = @list_id")?;
+    let mut rows2 = statement2.query(named_params! { "@list_id": id })?;
+
+    let mut items: Vec<ListItemInfo> = Vec::new();
+    
+    while let Some(row) = rows2.next()? {
+        let new_item: ListItemInfo = ListItemInfo {
+            id: row.get("id")?,
+            list_id: row.get("list_id")?,
+            name: row.get("name")?,
+            qtd: row.get("qtd")?,
+        };
+    
+        items.push(new_item);
+    }
+
+    
+    if list_info.is_none() {
+        println!("It is none!");
+        return Ok(None);
+    }
+
+    let shopping_list: ShoppingListData = ShoppingListData {
+        list_info: list_info.unwrap(),
+        items
+    };
+    
+    Ok(Some(shopping_list))
+}
+
+/**
+ *  Adds new list item to a specified list
+ * */
+pub fn add_item_to_list(list_id: i32, name: &str, qtd: i32, db: &Connection) -> Result<bool, rusqlite::Error> {
+    let mut statement = db.prepare("INSERT INTO list_item (list_id, name, qtd) VALUES (@list_id, @name, @qtd)")?;
+    statement.execute(named_params! { "@list_id": list_id, "@name": name, "@qtd": qtd })?;
+
+    Ok(true)
 }

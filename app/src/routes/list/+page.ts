@@ -1,24 +1,27 @@
 import { invoke } from "@tauri-apps/api/tauri";
+import { error } from "@sveltejs/kit";
 
-export const load = async ({ url }) => {
-    let listTitle: string;
-    const listID: string = url.searchParams.get("id");
-    let listItems: string[];
+// just to ignore typescript error
+type UrlArg = {
+    url: any;
+};
 
-    type ListData = {
-        title: string;
-        items: string[];
-    };
+export const load = async ({ url }: UrlArg) => {
+    const listID: number = parseInt(url.searchParams.get("id"));
 
+    let response;
+
+    let success = false;
     // Retrieve Data
-    await invoke("get_mock_data", { id: listID }).then((value: ListData) => {
-        listTitle = value.title;
-        listItems = value.items;
-    });
+    await invoke("get_shopping_list", { id: listID })
+        .then((value: any) => {
+            response = value;
+            success = true;
+        })
+        .catch((value: String) => {
+            console.log(value);
+        });
 
-    return {
-        title: listTitle || "Error Loading",
-        id: listID,
-        items: listItems || [],
-    };
+    if (success) return response;
+    else throw error(404, "Failed to retrieve shopping list data");
 };
