@@ -91,7 +91,7 @@
 
 <div class="flex flex-col justify-start items-center w-full">
     <div
-        class="px-3 mt-3 mb-6 w-full h-8 grid grid-flow-row grid-cols-[1fr_1fr] items-center"
+        class="px-3 mt-3 mb-6 w-full h-8 grid grid-flow-row grid-cols-[1fr_0.5fr_1fr] items-center"
     >
         <div>
             {#if !published}
@@ -183,13 +183,16 @@
                     class="w-full cursor-text"
                     on:click={selectNextItem}
                 >
-                    <input
-                        type="text"
+                    <textarea
                         bind:this={nextItem}
                         bind:value={nextItemValue}
+                        on:input={() => {
+                            nextItem.style.height = "1px";
+                            nextItem.style.height = `${nextItem.scrollHeight}px`;
+                        }}
                         name="newItem"
                         id="newItem"
-                        class="text-lg w-[36rem] pl-2 hidden-placeholder focus-visible:outline-none"
+                        class="text-lg break-words w-[36rem] pl-2 hidden-placeholder focus-visible:outline-none resize-none"
                         placeholder="Input new item name"
                     />
                 </button>
