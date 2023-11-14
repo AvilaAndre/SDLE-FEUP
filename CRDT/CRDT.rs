@@ -77,8 +77,8 @@ mod crdt {
             self.positive_count - self.negative_count;
         }
 
-        fn compare(&self, inc_pn_counter) -> Bool{
-            self.positive_count <= inc_pn_counter.positive_count && self.negative_count <= inc_pn_counter.negative_count
+        fn compare(&self, inc_pn_counter) -> bool{
+            self.positive_count <= inc_pn_counter.positive_count && self.negative_count <= inc_pn_counter.negative_count;
         }
         // merge function perserving: commutative, associative, and idempotent.
         fn merge(&mut self,  inc_pn_counter: &PNCounter){
@@ -222,3 +222,53 @@ mod crdt {
     }
 }
     //TODO: How to deal with just send state of the lists that were modified ad replicate/merge across all shared lists
+
+
+#[cfg(test)]
+
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_increment_pncounter() {
+        let mut counter = PNCounter::new();
+        counter.increment(5);
+        assert_eq!(counter.positive_count, 5);
+    }
+
+    #[test]
+    fn test_decrement_pncounter() {
+        let mut counter = PNCounter::new();
+        counter.decrement(3);
+        assert_eq!(counter.negative_count, 3);
+    }
+
+
+    #[test]
+    fn test_get_count_pncounter() {
+        let mut counter = PNCounter::new();
+        counter.increment(10);
+        counter.decrement(4);
+        assert_eq!(counter.get_count(), 6);
+    }
+
+    #[test]
+    fn test_pncounter_compare() {
+        let mut counter1 = PNCounter::new();
+        let mut counter2 = PNCounter::new();
+        counter1.increment(5);
+        counter2.increment(3);
+        assert!(counter2.compare(&counter1));
+    }
+
+    #[test]
+    fn test_pncounter_merge() {
+        let mut counter1 = PNCounter::new();
+        let mut counter2 = PNCounter::new();
+        counter1.increment(10);
+        counter2.increment(5);
+        counter1.merge(&counter2);
+        assert_eq!(counter1.get_count(), 10); // Ensure it takes the max
+    }
+
+}
