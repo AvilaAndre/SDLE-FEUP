@@ -6,6 +6,7 @@
     import PublishIcon from "$lib/icons/PublishIcon.svelte";
     import type { ShoppingListData } from "$lib/types";
     import { invoke } from "@tauri-apps/api/tauri";
+    import { openTab } from "$lib/writables/listTabs";
 
     export let data: ShoppingListData;
 
@@ -72,6 +73,7 @@
             title: data.list_info.title,
         }).then((value: any) => {
             // TODO: if not value then the list title did not update
+            openTab(data.list_info.title, "/list?id=" + data.list_info.list_id);
         });
     };
 
@@ -82,6 +84,8 @@
             timer = setTimeout(callback, ms);
         };
     })();
+
+    openTab(data.list_info.title, "/list?id=" + data.list_info.list_id);
 </script>
 
 <svelte:head>
@@ -91,7 +95,7 @@
 
 <div class="flex flex-col justify-start items-center w-full">
     <div
-        class="px-3 mt-3 mb-6 w-full h-8 grid grid-flow-row grid-cols-[1fr_1fr] items-center"
+        class="px-3 mb-6 w-full h-8 grid grid-flow-row grid-cols-[1fr_0.5fr_1fr] items-center mt-14 fixed"
     >
         <div>
             {#if !published}
@@ -106,6 +110,11 @@
                     <p>Share</p>
                 </button>
             {/if}
+        </div>
+        <div class="text-center">
+            <h3>
+                {data.list_info.title}
+            </h3>
         </div>
         <div class="flex flex-row justify-end">
             {#if !published}
@@ -147,7 +156,7 @@
             {/if}
         </div>
     </div>
-    <div class="h-fit w-full">
+    <div class="h-fit w-full mt-64">
         <div class="w-[36rem] mx-auto">
             <input
                 type="text"
@@ -158,7 +167,7 @@
                     typewatch(() => {
                         updateListTitle();
                     }, 1000)}
-                class="text-4xl hidden-placeholder focus-visible:outline-none"
+                class="text-5xl hidden-placeholder focus-visible:outline-none"
             />
             {#if data.list_info.share_id}
                 <h4 class="text-sm text-slate-700 pl-1">
