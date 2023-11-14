@@ -6,9 +6,10 @@
 </script>
 
 <div class="app">
-    <section class="bg-gray-200 w-screen h-10 fixed">
+    <section class="bg-gray-200 w-screen h-12 fixed">
         <Tabs bind:tabs={$tabsList} />
     </section>
+    <div class="h-12" />
     <main>
         <slot />
     </main>

@@ -47,6 +47,9 @@
     };
 
     const addNewItem = async () => {
+        nextItemValue = nextItemValue.trim();
+        if (nextItemValue === "") return;
+
         await invoke("add_item_to_list", {
             listId: data.list_info.list_id,
             name: nextItemValue,
@@ -95,7 +98,7 @@
 
 <div class="flex flex-col justify-start items-center w-full">
     <div
-        class="px-3 mb-6 w-full h-8 grid grid-flow-row grid-cols-[1fr_0.5fr_1fr] items-center mt-14 fixed"
+        class="bg-white px-3 mb-6 w-full h-8 grid grid-flow-row grid-cols-[1fr_0.5fr_1fr] items-center py-2 fixed"
     >
         <div>
             {#if !published}
