@@ -1,11 +1,5 @@
-// https://crates.io/crates/uuid
-// UUIDs have a number of standardized encodings that are specified in RFC4122, with recent additions in draft.
-use crate::crdt::crdt::Uuid;
-
-// use std::collections::{HashMap, HashSet};
-// use std::cmp::max;
-
-mod crdt {
+pub mod crdt {
+    use uuid::Uuid;
     
     /*
         To help: PN-Counter for Item of a list
@@ -25,30 +19,7 @@ mod crdt {
         merge (X, Y) : payload Z
             let ∀i ∈ [0, n - 1] : Z.P[i] = max(X.P[i], Y.P[i])
             let ∀i ∈ [0, n - 1] : Z.N[i] = max(X.N[i], Y.N[i]
-
-
-        ADD-Wins:
-
-        Σ = P(T × V) × P(T)
-        σ
-        0
-        i = {}, {}
-        applyi
-        ((add, v),(s,t)) = s ∪ {(utag(), v)},t
-        applyi
-        ((rmv, v),(s,t)) = s,t ∪ {u | (u, v) ∈ s}
-        evali(rd,s) = {v | (u, v) ∈ s ∧ u 6∈ t}
-        mergei
-        ((s,t),(s
-        0
-        ,t
-        0
-        )) = s ∪ s
-        0
-        ,t ∪ t
-        0
-    
-    
+        
     */
 
     #[derive(Clone,Debug)]
@@ -97,17 +68,17 @@ mod crdt {
 
     #[derive(Clone,Debug)]
     pub struct Item {
-        id: Uuid,
-        name: String,
+        // id: Uuid,
+        name: String, // comparar por nome -> ver restrições a garantir
 
         quantity_counter: PNCounter, // Será a quantidade tendo em conta os: increments and decrements
 
     }
 
     impl Item {
-        pub fn new(id: Uuid, name: String) -> Self{
+        pub fn new( name: String) -> Self{
             Item {
-                id,
+                // id, check this later
                 name,
                 quantity_counter: PNCounter::new(),
             
@@ -116,9 +87,9 @@ mod crdt {
 
         }
 
-        pub fn get_id(&self) -> Uuid {
-            self.id
-        }
+        // pub fn get_id(&self) -> uuid::Uuid {
+        //     self.id
+        // }
     
         pub fn get_name(&self) -> &str {
             &self.name
@@ -136,23 +107,27 @@ mod crdt {
         }
         //Merge current item quantity with other item
         pub  fn merge(&mut self, incoming_item: &Item) {
-            if self.id == incoming_item.id{
+            if self.name == incoming_item.name{
                 self.quantity_counter.merge(&incoming_item.quantity_counter);
             }
         }
     }
-
+}
+    // // Arranjar estratégias de compressão para os states dos CRDTs !!! Passamos o estado, com o tempo isto vai acumular muita informação
 
     // #[derive(Clone)]
     // struct ShoppingList {
     //     id: Uuid,
-    //     items: HashMap<Uuid, Item>,
-    //     removed_items: HashSet<Uuid>,
+    //     items: HashMap<String, Item>,
         
 
 
     // }
-    // //TODO: Deal with add/remove between lists: choose type of state-CRDT eg: Observed Set with Add-Wins strategy?
+
+    // TODO: check this later
+    // the tuple (item: Item, updated: bool), the updated is used to know what we need to merge or not
+    // items: HashMap<item_name: String, (item: Item, updated: bool)> ( To check later) -> pode ser usado fora do CRDT para fazer tracking dos states item mudados, e assim só enviar estes ?!!?
+    // //TODO: Deal with add/remove between lists: choose type of state-CRDT eg: Observed Set with Add-Wins strategy? Pode fazer sentido ter clock
     // impl ShoppingList {
     //     fn new(id: Uuid) -> Self {
     //         ShoppingList {
@@ -234,72 +209,72 @@ mod crdt {
 
 
     // }
-}
+
     //TODO: How to deal with just send state of the lists that were modified ad replicate/merge across all shared lists
+    #[cfg(test)]
+    pub mod tests {
+        use crate::crdt::crdt::*;
+        // use uuid::Uuid;
+        #[test]
+        fn test_increment_pncounter() {
+            let mut counter = PNCounter::new();
+            counter.increment(5);
+            assert_eq!(counter.get_positive_count(), 5);
+        }
+    
+        #[test]
+        fn test_decrement_pncounter() {
+            let mut counter = PNCounter::new();
+            counter.decrement(3);
+            assert_eq!(counter.get_negative_count(), 3);
+        }
+    
+    
+        #[test]
+        fn test_get_count_pncounter() {
+            let mut counter = PNCounter::new();
+            counter.increment(10);
+            counter.decrement(4);
+            assert_eq!(counter.get_count(), 6);
+        }
+    
+        #[test]
+        fn test_pncounter_compare() {
+            let mut counter1 = PNCounter::new();
+            let mut counter2 = PNCounter::new();
+            counter1.increment(5);
+            counter2.increment(3);
+            assert!(counter2.compare(&counter1));
+        }
+    
+        #[test]
+        fn test_pncounter_merge() {
+            let mut counter1 = PNCounter::new();
+            let mut counter2 = PNCounter::new();
+            counter1.increment(10);
+            counter2.increment(5);
+            counter1.merge(&counter2);
+            assert_eq!(counter1.get_count(), 10); // Ensure it takes the max
+        }
 
-
-#[cfg(test)]
-mod tests {
-    use crate::crdt::crdt::*;
-    #[test]
-    fn test_increment_pncounter() {
-        let mut counter = PNCounter::new();
-        counter.increment(5);
-        assert_eq!(counter.get_positive_count(), 5);
-    }
-
-    #[test]
-    fn test_decrement_pncounter() {
-        let mut counter = PNCounter::new();
-        counter.decrement(3);
-        assert_eq!(counter.get_negative_count(), 3);
-    }
-
-
-    #[test]
-    fn test_get_count_pncounter() {
-        let mut counter = PNCounter::new();
-        counter.increment(10);
-        counter.decrement(4);
-        assert_eq!(counter.get_count(), 6);
-    }
-
-    #[test]
-    fn test_pncounter_compare() {
-        let mut counter1 = PNCounter::new();
-        let mut counter2 = PNCounter::new();
-        counter1.increment(5);
-        counter2.increment(3);
-        assert!(counter2.compare(&counter1));
-    }
-
-    #[test]
-    fn test_pncounter_merge() {
-        let mut counter1 = PNCounter::new();
-        let mut counter2 = PNCounter::new();
-        counter1.increment(10);
-        counter2.increment(5);
-        counter1.merge(&counter2);
-        assert_eq!(counter1.get_count(), 10); // Ensure it takes the max
-    }
 
 
     // Testing Item CRDT
 
     #[test]
     fn test_item_creation() {
-        let id = Uuid::new_v4();
+        // let id = Uuid::new_v4();
         let name = String::from("test_item");
-        let item = Item::new(id, name.clone());
+        let item = Item::new(name.clone());
 
-        assert_eq!(item.get_id(), id);
+        // assert_eq!(item.get_id(), id);
         assert_eq!(item.get_name(), name);
         assert_eq!(item.get_quantity(), 0);
     }
 
     #[test]
     fn test_increment_quantity() {
-        let mut item = Item::new(Uuid::new_v4(), String::from("test_item"));
+        let mut item = Item::new( String::from("test_item"));
         item.increment_quantity(5);
 
         assert_eq!(item.get_quantity(), 5);
@@ -307,7 +282,7 @@ mod tests {
 
     #[test]
     fn test_decrement_quantity() {
-        let mut item = Item::new(Uuid::new_v4(), String::from("test_item"));
+        let mut item = Item::new( String::from("test_item"));
         item.increment_quantity(10);
         item.decrement_quantity(3);
 
@@ -315,10 +290,10 @@ mod tests {
     }
 
     #[test]
-    fn test_merge_items() {
-        let id = Uuid::new_v4();
-        let mut item1 = Item::new(id, String::from("test_item1"));
-        let mut item2 = Item::new(id, String::from("test_item2"));
+    fn test_merge_items_same_name() {
+        // let id = Uuid::new_v4();
+        let mut item1 = Item::new( String::from("test_item1"));
+        let mut item2 = Item::new( String::from("test_item1"));
 
         item1.increment_quantity(5);
         item2.increment_quantity(10);
@@ -328,9 +303,9 @@ mod tests {
     }
 
     #[test]
-    fn test_no_merge_for_different_ids() {
-        let mut item1 = Item::new(Uuid::new_v4(), String::from("test_item1"));
-        let mut item2 = Item::new(Uuid::new_v4(), String::from("test_item2"));
+    fn test_no_merge_for_different_names() {
+        let mut item1 = Item::new(String::from("test_item1"));
+        let mut item2 = Item::new(String::from("test_item2"));
 
         item1.increment_quantity(5);
         item2.increment_quantity(10);
@@ -338,6 +313,5 @@ mod tests {
 
         assert_eq!(item1.get_quantity(), 5);
     }
-
 
 }
