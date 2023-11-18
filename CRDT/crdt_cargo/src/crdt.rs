@@ -115,14 +115,78 @@ pub mod crdt {
 }
     // // Arranjar estratégias de compressão para os states dos CRDTs !!! Passamos o estado, com o tempo isto vai acumular muita informação
 
-    // #[derive(Clone)]
-    // struct ShoppingList {
-    //     id: Uuid,
-    //     items: HashMap<String, Item>,
+    // Only grow Counter for context
+
+    #[derive(Clone,Debug)]
+   pub struct GCounter {
+        positive_count: i32,
+        
+    }
+
+    impl GCounter{
+       pub fn new() -> Self {
+            GCounter {
+                positive_count: 0,
+            }
+        }
+        pub fn get_positive_count(&self) -> i32 {
+            self.positive_count
+        }
+
+        
+        pub fn increment(&mut self, ammount: i32){
+            self.positive_count += ammount;
+        }
+
         
 
+        pub fn get_count(&self) -> i32 {
+            self.positive_count 
+        }
 
-    // }
+        pub fn compare(&self, inc_pn_counter: &GCounter) -> bool{
+            self.get_positive_count() <= inc_pn_counter.get_positive_count() 
+        }
+        // merge function perserving: commutative, associative, and idempotent.
+        pub fn merge(&mut self, inc_pn_counter: &GCounter) {
+            self.positive_count = std::cmp::max(self.positive_count, inc_pn_counter.positive_count);
+        }
+    }
+
+    // Formulation:
+    // List of (Items(Name,quanity: PN-Counter), (Nodeid/clientId, only grow counter)
+
+    #[derive(Clone, Debug)]
+    struct AWSet {
+        state: HashSet<(String, Uuid, GCounter)>, // Set of tuples (Item, NodeId, Counter)
+        context: HashSet<(Uuid, GCounter)>, // Set of tuples (NodeId, Counter)
+    }
+    impl AWSet {
+        pub fn new() -> Self AWSet{
+            state: HashSet::new(),
+            context: HashSet::new(),
+        }
+        //TODO: 
+        // addi(e,(s, c)) -> e= name of created item, s= state, c = context
+        // rmvi(e,(s, c)) -> e= name of created item, s= state, c = context
+        //maxi(c) = find the max on context set
+        // nexti(c) = create the next (NodeId, Counter) taken into account the existing ones on context = (NodeId, Counter) set
+
+    }
+        
+    #[derive(Clone, Debug)]
+    pub struct ShoppingList{
+        items: HashMap<String, Item>,
+        awset: AWSet,
+    }
+    impl ShoppingList{
+        pub fn new() -> Self{
+            ShoppingList{
+                items: HashMap::new(), 
+                awset: AWSet::new(),}
+        }
+    }
+    
 
     // TODO: check this later
     // the tuple (item: Item, updated: bool), the updated is used to know what we need to merge or not
