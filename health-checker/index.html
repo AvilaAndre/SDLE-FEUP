@@ -1,0 +1,32 @@
+<script>
+    setInterval(() => {
+        reload();
+    }, 1000);
+
+    const reload = async () => {
+        try {
+            const response = await fetch("/nodes");
+            const text = await response.text();
+            console.log(text);
+
+            document.getElementById("nodes").innerHTML = text;
+        } catch (error) {
+            document.getElementById("nodes").innerHTML = "Lost connection";
+        }
+    };
+</script>
+
+<h1>Health Checker!</h1>
+
+<div id="nodes">data unavailable</div>
+
+<form method="POST" action="/add">
+    <br />
+    <label>Address</label>
+    <input name="address" type="text" value="localhost" required />
+    <br />
+    <label>Port</label>
+    <input name="port" type="text" value="" required />
+    <input type="submit" value="submit" />
+    <br />
+</form>
