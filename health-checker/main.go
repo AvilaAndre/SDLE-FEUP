@@ -3,14 +3,16 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"time"
+
+	"sdle.com/mod/protocol"
 )
 
 type node struct {
@@ -24,40 +26,39 @@ func newNode(address string, port string) *node {
     return &p
 }
 
+type PingResponse struct {
+	Message string
+}
+
 func pingNode(i int, index chan int, status chan string) {
 	var nodeAddress string = nodes[i].address
-		var nodePort string = nodes[i].port
+	var nodePort string = nodes[i].port
 
-		con, err := net.Dial("tcp", fmt.Sprintf("%s:%s", nodeAddress, nodePort))
+	start := time.Now().UnixNano() / int64(time.Millisecond)
+	response, err := protocol.SendGetRequest(nodeAddress, nodePort, "/ping")
+	end := time.Now().UnixNano() / int64(time.Millisecond)
+	diff := end - start
 
-		if (err != nil) {
-			index <- i;
-			status <- "UNRESPONSIVE"
-			return
-		}
-		
-		defer con.Close()
-		
-		msg := "ping"
-		
-		start := time.Now().UnixNano() / int64(time.Millisecond)
+	if (err != nil) {
+		index <- i;
+		status <- "UNRESPONSIVE"
+		return
+	}
 
-		_, err = con.Write([]byte(msg))
+	if (response.StatusCode == 200) {
+		target := PingResponse{} 
 		
-		checkErr(err)
-		
-		reply := make([]byte, 1024)
-		
-		size, err := con.Read(reply)
-		
-		checkErr(err)
-		replyString := string(reply[:size])
-		if (replyString == "pong") {
-			end := time.Now().UnixNano() / int64(time.Millisecond)
-			diff := end - start
+		json.NewDecoder(response.Body).Decode(&target)
+
+		if (target.Message == "pong") {
 			index <- i;
 			status <- fmt.Sprintf("OK: %d ms", diff)
+			return
 		}
+	}
+
+	index <- i;
+	status <- "ERROR"
 }
 
 
@@ -104,8 +105,6 @@ func getAdd(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Post from website! r.PostFrom = %v\n", r.PostForm)
 	address := r.FormValue("address")
 	port := r.FormValue("port")
-	fmt.Printf("Address = %s\n", address)
-	fmt.Printf("Port = %s\n", port)
 
 	nodes = append(nodes, newNode(address, port))
 

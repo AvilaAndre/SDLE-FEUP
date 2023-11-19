@@ -1,53 +1,32 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"log"
-	"net"
+	"net/http"
 	"os"
-)
-const (
-        SERVER_HOST = "localhost"
-        SERVER_PORT = "9988"
-        SERVER_TYPE = "tcp"
 )
 
 func main() {
-        fmt.Println("Server Running...")
-        server, err := net.Listen(SERVER_TYPE, SERVER_HOST+":"+SERVER_PORT)
-        if err != nil {
-                fmt.Println("Error listening:", err.Error())
-                os.Exit(1)
-        }
-        defer server.Close()
-        fmt.Println("Listening on " + SERVER_HOST + ":" + SERVER_PORT)
-        fmt.Println("Waiting for client...")
-        for {
-                connection, err := server.Accept()
-                if err != nil {
-                        fmt.Println("Error accepting: ", err.Error())
-                        os.Exit(1)
-                }
-                fmt.Println("client connected")
-                go processClient(connection)
-        }
-}
+	fmt.Println("Server Running...")
 
-func processClient(connection net.Conn) {
-        buffer := make([]byte, 1024)
-        mLen, err := connection.Read(buffer)
-        if err != nil {
-                fmt.Println("Error reading:", err.Error())
-        }
-        fmt.Println("Received: ", string(buffer[:mLen]))
-        _, err = connection.Write([]byte("pong"))
-		checkErr(err)
-        connection.Close()
-}
+    argsWithoutProg := os.Args[1:]
+	var server_port string = argsWithoutProg[0];
 
-func checkErr(err error) {
-    if err != nil {
-        log.Fatal(err)
-    }
-}
+	if server_port == "" {
+		fmt.Printf("A server port must be specified") 
+		os.Exit(1)
+	}
 
+
+	registerRoutes();
+
+	err := http.ListenAndServe(fmt.Sprintf(":%s", server_port), nil)
+
+	if errors.Is(err, http.ErrServerClosed) {
+		fmt.Printf("server closed\n")
+	} else if err != nil {
+		fmt.Printf("error starting server: %s\n", err) 
+		os.Exit(1)
+	}
+}
