@@ -1,9 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use rand::{self, Rng, distributions::Uniform, prelude::Distribution};
-
-use rusqlite::{Connection, Result};
+use rusqlite::{Result};
 
 mod database;
 mod state;
@@ -38,7 +36,7 @@ fn my_custom_command() {
 }
 
 #[tauri::command]
-fn create_list(app_handle: AppHandle) -> Result<i32, String> {
+fn create_list(app_handle: AppHandle) -> Result<String, String> {
     match app_handle.db(|db| database::create_list("New List", db)) {
         Err(e) => {
             println!("error creating new list: {e:?}");
@@ -61,21 +59,19 @@ fn get_lists(app_handle: AppHandle) -> Result<Vec<ListInfo>, String> {
 }
 
 #[tauri::command]
-fn get_shopping_list(app_handle: AppHandle, id: i32) -> Result<ShoppingListData, String> {
+fn get_shopping_list(app_handle: AppHandle, id: String) -> Result<ShoppingListData, String> {
     match app_handle.db(|db| database::get_list(id, db)) {
         Err(e) => {
-            println!("error getting all lists: {e:?}");
+            println!("error getting a list: {e:?}");
             return Err(e.to_string())
         }
-        Ok(list) => match list {
-            Some(list_data) => return Ok(list_data),
-            None => return Err("Failed to get list data".to_string())
-        }
+        Ok(list) => return Ok(list)
     }
 }
 
+#[allow(non_snake_case)]
 #[tauri::command]
-fn add_item_to_list(app_handle: AppHandle, listId: i32, name: &str, qtd: i32) -> bool {
+fn add_item_to_list(app_handle: AppHandle, listId: String, name: &str, qtd: i32) -> bool {
     match app_handle.db(|db| database::add_item_to_list(listId, name, qtd, db)) {
         Err(e) => {
             println!("error creating list item: {e:?}");
@@ -86,8 +82,9 @@ fn add_item_to_list(app_handle: AppHandle, listId: i32, name: &str, qtd: i32) ->
     }
 }
 
+#[allow(non_snake_case)]
 #[tauri::command]
-fn update_list_title(app_handle: AppHandle, listId: i32, title: &str) -> bool {
+fn update_list_title(app_handle: AppHandle, listId: String, title: &str) -> bool {
     match app_handle.db(|db| database::update_list_title(listId, title, db)) {
         Err(e) => {
             println!("error creating list item: {e:?}");

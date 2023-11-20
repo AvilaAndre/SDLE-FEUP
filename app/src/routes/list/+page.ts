@@ -7,7 +7,7 @@ type UrlArg = {
 };
 
 export const load = async ({ url }: UrlArg) => {
-    const listID: number = parseInt(url.searchParams.get("id"));
+    const listID: Text = url.searchParams.get("id");
 
     let response;
 
