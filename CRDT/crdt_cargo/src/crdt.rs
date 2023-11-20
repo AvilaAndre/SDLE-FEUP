@@ -169,14 +169,18 @@ pub mod crdt {
             }
         }
         
-        
-        // get elements ( Items) of AWSet with corresponding state and context
-        pub fn elements(&self) -> String {
 
+        // get elements ( Items) of AWSet with corresponding state and context
+        pub fn elements(&self) -> Vec<String> {
+            let mut unique_items = HashSet::new();
+                for (item_name, _, _) in &self.state {
+                    unique_items.insert(item_name.clone());
+                }
+                unique_items.into_iter().collect()
         }
         // Check if given element (Item) with corresponding state and context, exist on AWSet
-        pub fn contains(item_name: String) -> bool {
-
+        pub fn contains(&self, item_name: &str) -> bool {
+            self.state.iter().any(|(name, _, _)| name == item_name)
         }
 
         
@@ -199,7 +203,7 @@ pub mod crdt {
         }
 
         // addd new item or increment/decrement existing item: +x increment, -x decrement
-        pub fn add_i(&mut self, item_name: String, node_id: Uuid, quantity_change: i32) -> Item{
+        pub fn add_i(&mut self, item_name: String, node_id: Uuid, quantity_change: i32) {
             let next_context = Self::next_i(&self, node_id);
             self.context.insert(next_context.clone()); // c ∪ {d}
 
@@ -208,36 +212,17 @@ pub mod crdt {
             match existing_item {
 
                 Some((name, _id, _counter)) => {
-                    let mut updated_item = Item::new(name.clone());
                     
-                    if quantity_change < 0 {
-                        let dec_quant_change = -1 * quantity_change;
-                        updated_item.decrement_quantity(dec_quant_change);
-
-                    }else if quantity_change > 0{
-                        updated_item.increment_quantity(quantity_change);
-                    }
                     // just update item without quantity and or return updated_item change with updated next_i
-                    self.state.replace((updated_item.name.clone(), next_context.0, next_context.1 )); // s ∪ {(e, d)}
-                    return updated_item;
-
-                    
+                    self.state.insert((item_name.clone(), next_context.0, next_context.1 )); // s ∪ {(e, d)}
 
 
                 }
 
                 None => {
-                    let mut new_item = Item::new(item_name);
-                    if quantity_change < 0 {
-                        let dec_quant_change = -1 * quantity_change;
-                        new_item.decrement_quantity(dec_quant_change);
-
-                    }else if quantity_change > 0{
-                        new_item.increment_quantity(quantity_change);
-                    }
+                    
                     // just add the item on state with updated next_i
                     self.state.insert((new_item.name.clone(), next_context.0,next_context.1));
-                    return new_item;
                 }
 
                 
@@ -282,21 +267,93 @@ pub mod crdt {
     }
     
 
-    // TODO: ShoppingList
-    // #[derive(Clone, Debug)]
-    // pub struct ShoppingList{
-    //     items: HashMap<String, Item>,
-    //     awset: AWSet,
-    // }
-    // impl ShoppingList{
-    //     pub fn new() -> Self{
-    //         ShoppingList{
-    //             items: HashMap::new(), 
-    //             awset: AWSet::new(),}
-    //     }
-    // }
+    TODO: ShoppingList
+    #[derive(Clone, Debug)]
+    pub struct ShoppingList{
+        items: HashMap<String, Item>,
+        awset: AWSet,
+    }
+    impl ShoppingList{
+        pub fn new() -> Self{
+            ShoppingList{
+                items: HashMap::new(), 
+                awset: AWSet::new(),}
+        }
+        //Add-Wins
+        add_or_update_item(&mut self, item_name: String, node_id: Uuid, quantity_change: i32){
+            self.awset.add_i(item_name.clone(), node_id, quantity_change);
+            
 
-    //add needs to use AWSet, and in the final update/insert one the items atribute
+            
+
+            if let Some(existing_item) = self.items.get_mut(&item_name) {
+                    
+                    if quantity_change < 0 {
+                        let dec_quant_change = -1 * quantity_change;
+                        existing_item.decrement_quantity(dec_quant_change);
+
+                    }else if quantity_change > 0{
+                        existing_item.increment_quantity(quantity_change);
+                    }
+                    
+
+                    
+
+
+            }
+            else{ //Item doesn't exist on Map of Items
+                
+                let mut new_item = Item::new(node_id, quantity_change);
+                if quantity_change < 0 {
+                    let dec_quant_change = -1 * quantity_change;
+                    new_item.decrement_quantity(dec_quant_change);
+                    self.items.insert(item_name, new_item);
+
+                    
+
+                }else if quantity_change > 0{
+                    new_item.increment_quantity(quantity_change);
+                    self.items.insert(item_name, new_item);
+                }
+            }
+
+                
+        }
+
+        pub fn remove_item(&mut self, item_name: String){
+            self.awset.rmv_i(item_name);
+        }
+
+        pub fn merge(&mut self, inc_list: ShoppingList) {
+            // Merge AWSet states
+            self.awset.merge(inc_list.awset);
+    
+            
+            for (item_name, _, _) in &self.awset.state {
+                // Check if the item exists in both shopping lists
+                match (self.items.get(item_name), inc_list.items.get(item_name)) {
+                    (Some(self_item), Some(inc_item)) => {
+                        
+                        let mut merged_item = self_item.clone();
+                        merged_item.merge(inc_item);
+                        self.items.insert(item_name.clone(), merged_item);
+                    }
+                    (None, Some(other_item)) | (Some(_), None) => {
+                        // If the item exists only in one of the lists, add it directly
+                        self.items.insert(item_name.clone(), inc_item.clone());
+                    }
+                    _ => {} // If the item doesn't exist in either list, do nothing
+                }
+            }
+        }
+    
+        // Get all item names 
+        pub fn get_items(&self) -> Vec<String> {
+            self.awset.elements()
+        }
+    }
+
+    // add needs to use AWSet, and in the final update/insert one the items atribute
     
 }
     
@@ -656,6 +713,34 @@ pub mod crdt {
         // Merging two empty sets should result in an empty set
         awset1.merge(&awset2);
         assert!(awset1.state.is_empty());
+    }
+
+    #[test]
+    fn test_elements() {
+        let mut awset = AWSet::new();
+        let node_id = Uuid::new_v4();
+
+        // Adding items
+        awset.add_i("Apple".to_string(), node_id, 5);
+        awset.add_i("Banana".to_string(), node_id, 3);
+        awset.add_i("Apple".to_string(), node_id, 2); // Duplicate item
+
+        let elements = awset.elements();
+        assert_eq!(elements.len(), 2); // Should contain 2 unique items
+        assert!(elements.contains(&"Apple".to_string()));
+        assert!(elements.contains(&"Banana".to_string()));
+    }
+
+    #[test]
+    fn test_contains() {
+        let mut awset = AWSet::new();
+        let node_id = Uuid::new_v4();
+
+        // Adding items
+        awset.add_i("Apple".to_string(), node_id, 5);
+
+        assert!(awset.contains("Apple"));
+        assert!(!awset.contains("Banana"));
     }
 
 
