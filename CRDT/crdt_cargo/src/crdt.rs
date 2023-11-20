@@ -1,6 +1,6 @@
 pub mod crdt {
     use uuid::Uuid;
-    
+    use std::collections::HashSet;
     /*
         To help: PN-Counter for Item of a list
 
@@ -21,6 +21,43 @@ pub mod crdt {
             let ∀i ∈ [0, n - 1] : Z.N[i] = max(X.N[i], Y.N[i]
         
     */
+    // Only grow Counter for context
+
+    #[derive(Clone,Debug)]
+    pub struct GCounter {
+            positive_count: i32,
+            
+        }
+
+    impl GCounter{
+       pub fn new() -> Self {
+            GCounter {
+                positive_count: 0,
+            }
+        }
+        pub fn get_positive_count(&self) -> i32 {
+            self.positive_count
+        }
+
+        
+        pub fn increment(&mut self, ammount: i32){
+            self.positive_count += ammount;
+        }
+
+        
+
+        pub fn get_count(&self) -> i32 {
+            self.positive_count 
+        }
+
+        pub fn compare(&self, inc_pn_counter: &GCounter) -> bool{
+            self.get_positive_count() <= inc_pn_counter.get_positive_count() 
+        }
+        // merge function perserving: commutative, associative, and idempotent.
+        pub fn merge(&mut self, inc_pn_counter: &GCounter) {
+            self.positive_count = std::cmp::max(self.positive_count, inc_pn_counter.positive_count);
+        }
+    }
 
     #[derive(Clone,Debug)]
    pub struct PNCounter {
@@ -112,173 +149,163 @@ pub mod crdt {
             }
         }
     }
-}
+
     // // Arranjar estratégias de compressão para os states dos CRDTs !!! Passamos o estado, com o tempo isto vai acumular muita informação
 
-    // Only grow Counter for context
-
-    #[derive(Clone,Debug)]
-   pub struct GCounter {
-        positive_count: i32,
-        
-    }
-
-    impl GCounter{
-       pub fn new() -> Self {
-            GCounter {
-                positive_count: 0,
-            }
-        }
-        pub fn get_positive_count(&self) -> i32 {
-            self.positive_count
-        }
-
-        
-        pub fn increment(&mut self, ammount: i32){
-            self.positive_count += ammount;
-        }
-
-        
-
-        pub fn get_count(&self) -> i32 {
-            self.positive_count 
-        }
-
-        pub fn compare(&self, inc_pn_counter: &GCounter) -> bool{
-            self.get_positive_count() <= inc_pn_counter.get_positive_count() 
-        }
-        // merge function perserving: commutative, associative, and idempotent.
-        pub fn merge(&mut self, inc_pn_counter: &GCounter) {
-            self.positive_count = std::cmp::max(self.positive_count, inc_pn_counter.positive_count);
-        }
-    }
 
     // Formulation:
     // List of (Items(Name,quanity: PN-Counter), (Nodeid/clientId, only grow counter)
 
     #[derive(Clone, Debug)]
-    struct AWSet {
-        state: HashSet<(String, Uuid, GCounter)>, // Set of tuples (Item, NodeId, Counter)
-        context: HashSet<(Uuid, GCounter)>, // Set of tuples (NodeId, Counter)
+    pub struct AWSet {
+        pub state: HashSet<(String, Uuid, i32)>, // Set of tuples (Item, NodeId, Counter)
+        pub context: HashSet<(Uuid, i32)>, // Set of tuples (NodeId, Counter)
     }
     impl AWSet {
-        pub fn new() -> Self AWSet{
-            state: HashSet::new(),
-            context: HashSet::new(),
+        pub fn new() -> Self {
+            AWSet{
+                state: HashSet::new(),
+                context: HashSet::new(), 
+            }
         }
-        //TODO: 
+        
+        // get elements ( Items) of AWSet with corresponding state and context
+        pub fn elements(&self) -> String {
+
+        }
+        // Check if given element (Item) with corresponding state and context, exist on AWSet
+        pub fn contains(item_name: String) -> bool {
+
+        }
+
+        
+        //TODO: GCounter ou pertence ao AWSet, ou não é necessário
         // addi(e,(s, c)) -> e= name of created item, s= state, c = context
         // rmvi(e,(s, c)) -> e= name of created item, s= state, c = context
         //maxi(c) = find the max on context set
         // nexti(c) = create the next (NodeId, Counter) taken into account the existing ones on context = (NodeId, Counter) set
+        //
+        pub fn max_i(&self, node_id: Uuid) -> i32 {
+            self.context.iter()
+                .filter(|(uuid, _)| *uuid == node_id)
+                .map(|(_, counter)| *counter)
+                .max()
+                .unwrap_or(0)//if there is no (NodeId, Counter) tuple, max_i returns 0, so nex_i can generate tuples(node_id, 0+1( Counter)), when there is no pair on the context
+        }
+    
+        pub fn next_i(&self, node_id: Uuid) -> (Uuid, i32) {
+            (node_id, self.max_i(node_id) + 1) 
+        }
 
-    }
-        
-    #[derive(Clone, Debug)]
-    pub struct ShoppingList{
-        items: HashMap<String, Item>,
-        awset: AWSet,
-    }
-    impl ShoppingList{
-        pub fn new() -> Self{
-            ShoppingList{
-                items: HashMap::new(), 
-                awset: AWSet::new(),}
+        // addd new item or increment/decrement existing item: +x increment, -x decrement
+        pub fn add_i(&mut self, item_name: String, node_id: Uuid, quantity_change: i32) -> Item{
+            let next_context = Self::next_i(&self, node_id);
+            self.context.insert(next_context.clone()); // c ∪ {d}
+
+            let existing_item = self.state.iter().find(|(name, _,_)| *name == item_name);
+
+            match existing_item {
+
+                Some((name, _id, _counter)) => {
+                    let mut updated_item = Item::new(name.clone());
+                    
+                    if quantity_change < 0 {
+                        let dec_quant_change = -1 * quantity_change;
+                        updated_item.decrement_quantity(dec_quant_change);
+
+                    }else if quantity_change > 0{
+                        updated_item.increment_quantity(quantity_change);
+                    }
+                    // just update item without quantity and or return updated_item change with updated next_i
+                    self.state.replace((updated_item.name.clone(), next_context.0, next_context.1 )); // s ∪ {(e, d)}
+                    return updated_item;
+
+                    
+
+
+                }
+
+                None => {
+                    let mut new_item = Item::new(item_name);
+                    if quantity_change < 0 {
+                        let dec_quant_change = -1 * quantity_change;
+                        new_item.decrement_quantity(dec_quant_change);
+
+                    }else if quantity_change > 0{
+                        new_item.increment_quantity(quantity_change);
+                    }
+                    // just add the item on state with updated next_i
+                    self.state.insert((new_item.name.clone(), next_context.0,next_context.1));
+                    return new_item;
+                }
+
+                
+
+            }
+        }
+        //Here we remove all tuples from state, that have the item_name
+        pub fn rmv_i(&mut self, item_name: String) {
+            self.state.retain(|(name,_,_)| *name != item_name);
+            
+        }
+
+        pub fn filter(&self, inc_awset: &AWSet) -> HashSet<(String, Uuid, i32)> {
+            self.state.iter()
+            .filter(|(_name, node_id, counter)| {
+                !inc_awset.context.iter().any(|(inc_node_id,inc_counter)|{
+                    node_id == inc_node_id && counter < inc_counter 
+                })
+            })
+            .cloned()
+            .collect()
+        }
+
+        pub fn merge(&mut self, inc_awset: &AWSet){
+            //Intersection between states of two AWSets
+            let states_intersection = self.state.intersection(&inc_awset.state).cloned().collect();
+            // Union of filter(s,c') U f(s',c)
+            let filter_state_1: HashSet<_> = self.filter(&inc_awset);
+            let filter_state_2: HashSet<_> = inc_awset.filter(&self);
+
+            let union_12: HashSet<_> = filter_state_1.union(&filter_state_2).cloned().collect();
+            let final_merge: HashSet<_> = union_12.union(&states_intersection).cloned().collect();
+
+            
+            // Union of contexts
+            let final_context: HashSet<_> = self.context.union(&inc_awset.context).cloned().collect();
+            
+            // ending merge
+            self.state = final_merge;
+            self.context = final_context;
         }
     }
     
 
-    // TODO: check this later
-    // the tuple (item: Item, updated: bool), the updated is used to know what we need to merge or not
-    // items: HashMap<item_name: String, (item: Item, updated: bool)> ( To check later) -> pode ser usado fora do CRDT para fazer tracking dos states item mudados, e assim só enviar estes ?!!?
-    // //TODO: Deal with add/remove between lists: choose type of state-CRDT eg: Observed Set with Add-Wins strategy? Pode fazer sentido ter clock
-    // impl ShoppingList {
-    //     fn new(id: Uuid) -> Self {
-    //         ShoppingList {
-    //             id,
-    //             items: HashMap::new(),
-    //             removed_items: HashSet::new()
-    //         }
-
-
+    // TODO: ShoppingList
+    // #[derive(Clone, Debug)]
+    // pub struct ShoppingList{
+    //     items: HashMap<String, Item>,
+    //     awset: AWSet,
+    // }
+    // impl ShoppingList{
+    //     pub fn new() -> Self{
+    //         ShoppingList{
+    //             items: HashMap::new(), 
+    //             awset: AWSet::new(),}
     //     }
-    //     // Here we assure idempotency for add items: "add item + add item = add item"
-    //     fn add_item(&mut self, incoming_item: Item) {
-    //         self.items.insert(incoming_item.id, incoming_item);
-    //         self.removed_items.remove(&incoming_item.id); // Ensuring add wins over remove
-    //     }
-    //     fn remove_item(&mut self, item_id: Uuid){
-               
-    //         self.items.remove(&item_id);
-            
-    //         self.removed_items.insert(item_id);
-    //     }
-    //     // TODO: Deal with Add/ remove conflits between items of the lists
-
-    //     fn merge(&mut self, inc_shopping_list: &ShoppingList){
-    //         if self.id == inc_shopping_list.id{
-    //             for inc_item in inc_shopping_list.items.values(){
-    //                 if !inc_shopping_list.remove_items.contains(&inc_item.id){
-    //                     self.items.insert(inc_item.id, inc_item.clone());
-    //                 }
-    //             }
-    //         }
-           
-        
-
-    //         // Here we merge Merge removed items
-    //         for removed_id in &inc_shopping_list.remove_items{
-    //             if !self.items.contains_key(removed_id){
-    //                 self.remove_items.insert(*removed_id);
-    //             }
-    //         }
-
-    //         //TODO: How to deal with with conflits about added/removed items from self.list and incomming_list
-    //         //Server side ?!?: Added item with quantity always wins: only when in theory all users of a shared list have removed a certain item, the remove will be done: by default nothing will be merged, because no one have that item
-    //         // even if only one user continue to have added item with quantity, the final state wil be: list with that item
-    //     }
-    //         // Here we verify if any items marked for removal are indeed removed from the active( our items) itemslist
-    //         self.items.retain(|id, _| !self.removed_items.contains(id));
-
     // }
 
-    // TODO: finish this and test the above code
-    // #[derive(Clone)]
-    // struct ShoppingListsCRDT {
-    //     lists: HashMap<Uuid, List>,
-    // }
-
-
-    // #[derive(Clone)]
-    // impl ShoppingListsCRDT{
-
-    //     fn new() -> Self {
-    //         ShoppingListsCRDT {
-    //             lists: HashMap::new(),
-        
-    //         }
-
-
- 
-    //     }
-       
-    //     fn add_list(% mut self, list_id: Uuid){
-
-
-    //     }
-        
-    //     fn remove_list(&mut self, list_id: Uuid){
-
-    //     }
-
-
-    // }
+    //add needs to use AWSet, and in the final update/insert one the items atribute
+    
+}
+    
 
     //TODO: How to deal with just send state of the lists that were modified ad replicate/merge across all shared lists
     #[cfg(test)]
     pub mod tests {
         use crate::crdt::crdt::*;
-        // use uuid::Uuid;
+        use uuid::Uuid;
+        use std::collections::HashSet;
         #[test]
         fn test_increment_pncounter() {
             let mut counter = PNCounter::new();
@@ -378,4 +405,383 @@ pub mod crdt {
         assert_eq!(item1.get_quantity(), 5);
     }
 
+
+    //Test AWSet
+
+   
+
+    #[test]
+    fn test_awset_new() {
+        let awset = AWSet::new();
+        assert!(awset.state.is_empty());
+        assert!(awset.context.is_empty());
+    }
+
+    #[test]
+    fn test_max_i() {
+        let mut awset = AWSet::new();
+        let node_id = Uuid::new_v4();
+        awset.context.insert((node_id, 1));
+        awset.context.insert((node_id, 3));
+        awset.context.insert((node_id, 2));
+
+        assert_eq!(awset.max_i(node_id), 3);
+    }
+
+    #[test]
+    fn test_next_i() {
+        let mut awset = AWSet::new();
+        let node_id = Uuid::new_v4();
+        awset.context.insert((node_id, 1));
+        awset.context.insert((node_id, 2));
+
+        let next = awset.next_i(node_id);
+        assert_eq!(next, (node_id, 3));
+    }
+
+
+    #[test]
+    fn test_context_with_multiple_nodes() {
+        let mut awset = AWSet::new();
+        let node_id1 = Uuid::new_v4();
+        let node_id2 = Uuid::new_v4();
+
+        
+        awset.context.insert((node_id1, 1));
+        awset.context.insert((node_id1, 2));
+        awset.context.insert((node_id2, 1));
+        awset.context.insert((node_id2, 3));
+
+        // Test max_i for different nodes
+        assert_eq!(awset.max_i(node_id1), 2);
+        assert_eq!(awset.max_i(node_id2), 3);
+
+        // Test next_i for different nodes
+        let next1 = awset.next_i(node_id1);
+        let next2 = awset.next_i(node_id2);
+        assert_eq!(next1, (node_id1, 3));
+        assert_eq!(next2, (node_id2, 4));
+    }
+
+    #[test]
+    fn test_add_new_item() {
+        let mut awset = AWSet::new();
+        let node_id = Uuid::new_v4();
+        let item_name = "apple".to_string();
+        let quantity_change = 5;
+
+        let item = awset.add_i(item_name.clone(), node_id, quantity_change);
+        
+        assert_eq!(item.get_name(), "apple");
+        assert_eq!(item.get_quantity(), 5);
+        assert!(awset.state.contains(&(item_name, node_id, 1)));
+        assert!(awset.context.contains(&(node_id, 1)));
+    }
+
+    #[test]
+    fn test_increment_existing_item() {
+        let mut awset = AWSet::new();
+        let node_id = Uuid::new_v4();
+        let item_name = "apple".to_string();
+        awset.state.insert((item_name.clone(), node_id, 1));
+        awset.context.insert((node_id, 1));
+
+        let item = awset.add_i(item_name.clone(), node_id, 3);
+        
+        assert_eq!(item.get_name(), "apple");
+        assert_eq!(item.get_quantity(), 3);
+        assert!(awset.state.contains(&(item_name, node_id, 2)));
+        assert!(awset.context.contains(&(node_id, 2)));
+    }
+
+    #[test]
+    fn test_decrement_existing_item() {
+        let mut awset = AWSet::new();
+        let node_id = Uuid::new_v4();
+        let item_name = "apple".to_string();
+        awset.state.insert((item_name.clone(), node_id, 1));
+        awset.context.insert((node_id, 1));
+
+        let item = awset.add_i(item_name.clone(), node_id, -2);
+        
+        assert_eq!(item.get_name(), "apple");
+        assert_eq!(item.get_quantity(), -2);
+        assert!(awset.state.contains(&(item_name, node_id, 2)));
+        assert!(awset.context.contains(&(node_id, 2)));
+    }
+
+    fn test_add_i() {
+        let mut awset = AWSet::new();
+        let node_id = Uuid::new_v4();
+        let item_name = "apple".to_string();
+
+       
+        awset.add_i(item_name.clone(), node_id, 1);
+        assert_eq!(awset.state.contains(&(item_name.clone(), node_id, 1)), true);
+    }
+
+    // Unit tests for rmv_i
+    #[test]
+    fn test_rmv_i_existing_item() {
+        let mut awset = AWSet::new();
+        let node_id = Uuid::new_v4();
+        let item_name = "apple".to_string();
+
+        
+        awset.add_i(item_name.clone(), node_id, 1);
+        awset.rmv_i(item_name.clone());
+
+        assert_eq!(awset.state.contains(&(item_name, node_id, 1)), false);
+    }
+
+    
+    #[test]
+    fn test_rmv_i_non_existent_item() {
+        let mut awset = AWSet::new();
+        let node_id = Uuid::new_v4();
+        let item_name = "apple".to_string();
+        let non_existent_item = "banana".to_string();
+
+        
+        awset.add_i(item_name.clone(), node_id, 1);
+        awset.rmv_i(non_existent_item);
+
+        // Original item should still exist
+        assert_eq!(awset.state.contains(&(item_name, node_id, 1)), true);
+    }
+
+    
+    #[test]
+    fn test_rmv_i_context_unchanged() {
+        let mut awset = AWSet::new();
+        let node_id = Uuid::new_v4();
+        let item_name = "apple".to_string();
+
+        
+        awset.add_i(item_name.clone(), node_id, 1);
+        let context_before_removal = awset.context.clone();
+        awset.rmv_i(item_name);
+
+        // Context should remain the same
+        assert_eq!(awset.context, context_before_removal);
+    }
+
+    #[test]
+    fn test_filter_function() {
+        let node_id_1 = Uuid::new_v4();
+        let node_id_2 = Uuid::new_v4();
+        let mut awset_1 = AWSet::new();
+        let mut awset_2 = AWSet::new();
+
+        // Setup initial states for both sets
+        awset_1.state.insert(("apple".to_string(), node_id_1, 1));
+        awset_1.context.insert((node_id_1, 2));
+
+        awset_2.state.insert(("banana".to_string(), node_id_2, 1));
+        awset_2.context.insert((node_id_2, 2));
+
+        // Expected result after filtering awset_1 against awset_2: Mock
+        let mut expected_state: HashSet<(String, Uuid, i32)> = HashSet::new(); // Assuming "apple" should not be in the filtered state
+        expected_state.insert(("apple".to_string(), node_id_1, 1));
+        
+        let filtered_state = awset_1.filter(&awset_2);
+
+        // Check that the filtered state matches the expected state
+        assert_eq!(filtered_state, expected_state);
+    }
+
+    //Test merge
+
+    #[test]
+    fn test_merge_with_overlap() {
+        let mut awset1 = AWSet::new();
+        let mut awset2 = AWSet::new();
+
+        let node_id1 = Uuid::new_v4();
+        let node_id2 = Uuid::new_v4();
+        let counter1 = 1;
+        let counter2 = 2;
+
+        
+        awset1.state.insert(("apple".to_string(), node_id1, counter1));
+        awset2.state.insert(("apple".to_string(), node_id2, counter2));
+
+        // Merging should result in a set that contains both items
+        awset1.merge(&awset2);
+        assert_eq!(awset1.state.len(), 2);
+    }
+
+    #[test]
+    fn test_merge_with_distinct_items() {
+        let mut awset1 = AWSet::new();
+        let mut awset2 = AWSet::new();
+
+        let node_id1 = Uuid::new_v4();
+        let node_id2 = Uuid::new_v4();
+        let counter1 = 1;
+        let counter2 = 2;
+
+       
+        awset1.state.insert(("apple".to_string(), node_id1, counter1));
+        awset2.state.insert(("banana".to_string(), node_id2, counter2));
+
+        // Merging should result in a set that contains both items
+        awset1.merge(&awset2);
+        assert_eq!(awset1.state.len(), 2);
+    }
+
+    #[test]
+    fn test_merge_with_unique_items() {
+        let mut awset1 = AWSet::new();
+        let awset2 = AWSet::new();
+
+        let node_id = Uuid::new_v4();
+        let counter = 1;
+
+        
+        awset1.state.insert(("apple".to_string(), node_id, counter));
+
+        // Merging with an empty set should not change the first set
+        awset1.merge(&awset2);
+        assert_eq!(awset1.state.len(), 1);
+        assert!(awset1.state.contains(&("apple".to_string(), node_id, counter)));
+    }
+
+    #[test]
+    fn test_merge_with_empty_sets() {
+        let mut awset1 = AWSet::new();
+        let awset2 = AWSet::new();
+
+        // Merging two empty sets should result in an empty set
+        awset1.merge(&awset2);
+        assert!(awset1.state.is_empty());
+    }
+
+
+}
+
+#[cfg(test)]
+mod integration_tests {
+    use crate::crdt::crdt::*;
+    use uuid::Uuid;
+
+
+    #[test]
+    fn test_add_merge() {
+        let mut awset1 = AWSet::new();
+        let mut awset2 = AWSet::new();
+        let node_id1 = Uuid::new_v4();
+        let node_id2 = Uuid::new_v4();
+
+        
+        awset1.add_i("apple".to_string(), node_id1, 10);
+        awset2.add_i("banana".to_string(), node_id2, 5);
+
+        
+        awset1.merge(&awset2);
+
+       // Both id's have added, so the corresponding states are the above
+        assert!(awset1.state.contains(&("apple".to_string(), node_id1, 1)));
+        assert!(awset1.state.contains(&("banana".to_string(), node_id2, 1)));
+        assert!(awset1.context.contains(&( node_id1, 1)));
+        assert!(awset1.context.contains(&( node_id2, 1)));
+    }
+
+    #[test]
+    fn test_remove_merge() {
+        let mut awset1 = AWSet::new();
+        let mut awset2 = AWSet::new();
+        let node_id1 = Uuid::new_v4();
+        let node_id2 = Uuid::new_v4();
+
+        
+        awset1.add_i("apple".to_string(), node_id1, 10);
+        awset1.add_i("apple".to_string(), node_id1, 10);
+        awset2.add_i("apple".to_string(), node_id2, 10);
+        awset2.rmv_i("apple".to_string());
+
+     
+        awset1.merge(&awset2);
+
+        //In the merge, remove needs to stay because id1 have a greater causal context ( Counter =2)
+        //So Add wins policy is used
+        assert!(awset1.state.contains(&("apple".to_string(), node_id1, 2)));
+        assert!(awset1.context.contains(&( node_id1, 2)));
+        assert!(!awset2.state.contains(&("apple".to_string(), node_id2, 1)));
+        assert!(awset2.context.contains(&(node_id2, 1)));
+    }
+
+    #[test]
+    fn test_add_remove_same_item_merge() {
+        let mut awset1 = AWSet::new();
+        let mut awset2 = AWSet::new();
+        let node_id1 = Uuid::new_v4();
+        let node_id2 = Uuid::new_v4();
+
+       
+        awset1.add_i("apple".to_string(), node_id1, 10);
+        awset1.rmv_i("apple".to_string());
+        awset2.add_i("apple".to_string(), node_id2, 10);
+        awset2.rmv_i("apple".to_string());
+
+       
+        awset1.merge(&awset2);
+        //Both concurrently want to remove apple, remove is done
+        assert!(!awset1.state.contains(&("apple".to_string(), node_id1, 1)));
+        assert!(!awset1.state.contains(&("apple".to_string(), node_id2, 1)));
+        assert!(awset1.context.contains(&( node_id1, 1)));
+        assert!(awset2.context.contains(&( node_id2, 1)));
+    }
+
+
+    #[test]
+    fn test_remove_multiple_add_merge() {
+        let mut awset1 = AWSet::new();
+        let mut awset2 = AWSet::new();
+        let node_id1 = Uuid::new_v4();
+        let node_id2 = Uuid::new_v4();
+
+        
+        awset1.add_i("apple".to_string(), node_id1, 10);
+        awset1.add_i("apple".to_string(), node_id1, 10);
+        awset2.add_i("apple".to_string(), node_id2, 10);
+        awset2.add_i("apple".to_string(), node_id2, 10);
+        awset2.rmv_i("apple".to_string());
+
+     
+        awset1.merge(&awset2);
+
+        // Apple needs to be removed, nodes id1/id2 have the same causal context (Counter =2)
+        // It's like we only have one remove, without concurrent add
+        assert!(awset1.state.contains(&("apple".to_string(), node_id1, 2)));
+        assert!(awset1.context.contains(&( node_id1, 2)));
+        assert!(!awset2.state.contains(&("apple".to_string(), node_id2, 2)));
+        assert!(awset2.context.contains(&(node_id2, 2)));
+    }
+
+    #[test]
+    fn test_remove_multiple_add_merge2() {
+        let mut awset1 = AWSet::new();
+        let mut awset2 = AWSet::new();
+        let node_id1 = Uuid::new_v4();
+        let node_id2 = Uuid::new_v4();
+
+        
+        awset1.add_i("apple".to_string(), node_id1, 10);
+        awset1.add_i("apple".to_string(), node_id1, 10);
+        awset2.add_i("apple".to_string(), node_id2, 10);
+        awset2.add_i("apple".to_string(), node_id2, 10);
+        awset2.add_i("apple".to_string(), node_id2, 10);
+        awset2.rmv_i("apple".to_string());
+
+     
+        awset1.merge(&awset2);
+
+        // Apple needs to be removed, nodes id2 have a greater causal context (Counter =2)
+        // It's like id2, is the last user to add apples, and now he wants to remove without concurrents adds from other users
+        assert!(awset1.state.contains(&("apple".to_string(), node_id1, 2)));
+        assert!(awset1.context.contains(&( node_id1, 2)));
+        assert!(!awset2.state.contains(&("apple".to_string(), node_id2, 3)));
+        assert!(awset2.context.contains(&(node_id2, 3)));
+    }
 }
