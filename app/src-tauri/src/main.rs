@@ -4,12 +4,14 @@
 use rusqlite::{Result};
 
 mod database;
+mod controller;
 mod state;
-pub mod data_types;
+pub mod model;
+pub mod macros;
 
 use state::{AppState, ServiceAccess};
 use tauri::{State, Manager, AppHandle};
-use data_types::*;
+use model::*;
 
 
 fn main(){
@@ -37,7 +39,7 @@ fn my_custom_command() {
 
 #[tauri::command]
 fn create_list(app_handle: AppHandle) -> Result<String, String> {
-    match app_handle.db(|db| database::create_list("New List", db)) {
+    match app_handle.db(|db| controller::create_list("New List", db)) {
         Err(e) => {
             println!("error creating new list: {e:?}");
             return Err(e.to_string());
@@ -49,7 +51,7 @@ fn create_list(app_handle: AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 fn get_lists(app_handle: AppHandle) -> Result<Vec<ListInfo>, String> {
-    match app_handle.db(|db| database::get_all_lists(db)) {
+    match app_handle.db(|db| controller::get_all_lists_info(db)) {
         Err(e) => {
             println!("error getting all lists: {e:?}");
             return Err(e.to_string())
@@ -60,7 +62,7 @@ fn get_lists(app_handle: AppHandle) -> Result<Vec<ListInfo>, String> {
 
 #[tauri::command]
 fn get_shopping_list(app_handle: AppHandle, id: String) -> Result<ShoppingListData, String> {
-    match app_handle.db(|db| database::get_list(id, db)) {
+    match app_handle.db(|db| controller::get_list(db, id)) {
         Err(e) => {
             println!("error getting a list: {e:?}");
             return Err(e.to_string())
@@ -72,7 +74,7 @@ fn get_shopping_list(app_handle: AppHandle, id: String) -> Result<ShoppingListDa
 #[allow(non_snake_case)]
 #[tauri::command]
 fn add_item_to_list(app_handle: AppHandle, listId: String, name: &str, qtd: i32) -> bool {
-    match app_handle.db(|db| database::add_item_to_list(listId, name, qtd, db)) {
+    match app_handle.db(|db| controller::add_item_to_list(listId, name, qtd, db)) {
         Err(e) => {
             println!("error creating list item: {e:?}");
             return false;
@@ -85,7 +87,7 @@ fn add_item_to_list(app_handle: AppHandle, listId: String, name: &str, qtd: i32)
 #[allow(non_snake_case)]
 #[tauri::command]
 fn update_list_title(app_handle: AppHandle, listId: String, title: &str) -> bool {
-    match app_handle.db(|db| database::update_list_title(listId, title, db)) {
+    match app_handle.db(|db| controller::update_list_title(listId, title, db)) {
         Err(e) => {
             println!("error creating list item: {e:?}");
             return false;
