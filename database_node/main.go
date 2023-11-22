@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
@@ -43,7 +44,10 @@ func main() {
 
 	if loadBalancerAddress != "" && loadBalancerPort != "" {
 		nodes.addNode(node{address: loadBalancerAddress, port: loadBalancerPort})
-		protocol.SendRequestWithData(http.MethodPut, loadBalancerAddress, loadBalancerPort, "/node/add", ownData)
+		r, err := protocol.SendRequestWithData(http.MethodPut, loadBalancerAddress, loadBalancerPort, "/node/add", ownData)
+		utils.CheckErr(err)
+
+		log.Println("Tried to join the cluster:", r.Status)
 	}
 
 	err := http.ListenAndServe(fmt.Sprintf(":%s", serverPort), nil)
