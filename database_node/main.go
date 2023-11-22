@@ -2,23 +2,26 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"sdle.com/mod/utils"
 )
 
 var nodes nodeManager
+var serverPort string = ""
+var serverHostname string = ""
+var startedSolo bool = false
 
 func main() {
-	fmt.Println("Server Running...")
 
-	var serverPort string = ""
 	var loadBalancerAddress string = ""
 	var loadBalancerPort string = ""
 
 	argsWithoutProg := os.Args[1:]
 	if len(argsWithoutProg) > 0 {
 		serverPort = argsWithoutProg[0]
+		serverHostname = utils.GetOutboundIP().String()
 	}
 
 	if len(argsWithoutProg) == 3 {
@@ -32,6 +35,7 @@ func main() {
 	}
 
 	registerRoutes()
+	log.Printf("Node starting... %s:%s", serverHostname, serverPort)
 
 	if loadBalancerAddress != "" && loadBalancerPort != "" {
 		ownData := make(map[string]string)
@@ -40,6 +44,7 @@ func main() {
 		ownData["port"] = serverPort
 		startServerAndJoinCluster(serverPort, loadBalancerAddress, loadBalancerPort, ownData)
 	} else {
+		startedSolo = true
 		serverRunning := make(chan bool)
 		startServer(serverPort, serverRunning)
 		<-serverRunning // waits for the server to close

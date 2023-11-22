@@ -2,10 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
-	"time"
 
 	"sdle.com/mod/protocol"
 )
@@ -25,7 +25,7 @@ func getPing(w http.ResponseWriter, r *http.Request) {
 
 //https://www.google.com/search?q=md5+hashing&oq=md5+hashing&gs_lcrp=EgZjaHJvbWUyCQgAEEUYORiABDIHCAEQABiABDIHCAIQABiABDIHCAMQABiABDIICAQQABgWGB4yCAgFEAAYFhgeMggIBhAAGBYYHjIICAcQABgWGB4yCAgIEAAYFhge0gEIMjY3NGowajeoAgCwAgA&sourceid=chrome&ie=UTF-8
 
-var propagateLock sync.Mutex
+var nodeJoin sync.Mutex
 
 func nodeAction(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
@@ -34,21 +34,32 @@ func nodeAction(w http.ResponseWriter, r *http.Request) {
 	 */
 	case http.MethodPut:
 		{
+			nodeJoin.Lock()
+
+			if !startedSolo && len(nodes.getNodes()) == 0 {
+				w.WriteHeader(http.StatusForbidden)
+				w.Write([]byte("Attempted to join node with no cluster"))
+				log.Println("Rejected new join")
+				nodeJoin.Unlock()
+				return
+			}
+
 			target := make(map[string]string)
 
 			json.NewDecoder(r.Body).Decode(&target)
 
 			newNode := node{address: target["address"], port: target["port"]}
+
 			if nodes.hasNode(newNode) {
 				w.WriteHeader(http.StatusForbidden)
 				w.Write([]byte("There is already a node with that data"))
+				nodeJoin.Unlock()
 				return
 			}
 
 			var successfulPropagation bool = true
 			propagatedChan := make(chan bool)
 
-			propagateLock.Lock()
 			knownNodes := nodes.getNodes()
 
 			// propagates the message that a node was just added to the cluster
@@ -62,17 +73,31 @@ func nodeAction(w http.ResponseWriter, r *http.Request) {
 				var result bool = <-propagatedChan
 				successfulPropagation = successfulPropagation && result
 			}
-			propagateLock.Unlock()
 
+			// TODO: If the node already exists then the response should be to accept it
 			if successfulPropagation && nodes.addNode(newNode) {
-				log.Println("Node ADD ACCEPTED", newNode)
+				// This node should inform the new node of all nodes existnt on the network
+				nodesData := make(map[string][]map[string]string)
+
+				nodesData["nodes"] = append(nodesData["nodes"], map[string]string{"address": serverHostname, "port": serverPort})
+				for i := 0; i < len(knownNodes); i++ {
+					nodesData["nodes"] = append(nodesData["nodes"], map[string]string{"address": knownNodes[i].address, "port": knownNodes[i].port})
+				}
+
+				jsonData, err := json.Marshal(nodesData)
+				if err != nil {
+					log.Fatalf("Error happened in JSON marshal. Err: %s", err)
+				}
+
+				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusAccepted)
-				w.Write([]byte("Node added successfully"))
+				w.Write(jsonData)
 			} else {
 				log.Println("Node ADD Rejected")
 				w.WriteHeader(http.StatusForbidden)
 				w.Write([]byte("There is already a node with that data"))
 			}
+			nodeJoin.Unlock()
 
 		}
 	/**
@@ -80,24 +105,26 @@ func nodeAction(w http.ResponseWriter, r *http.Request) {
 	 */
 	case http.MethodPost:
 		{
+			nodeJoin.Lock()
 			target := make(map[string]string)
 
 			json.NewDecoder(r.Body).Decode(&target)
 
 			newNode := node{address: target["address"], port: target["port"]}
 
+			// TODO: should return true
 			if nodes.hasNode(newNode) {
 				w.WriteHeader(http.StatusForbidden)
 				w.Write([]byte("There is already a node with that data"))
+				nodeJoin.Unlock()
 				return
 			}
 
 			nodes.addNode(newNode)
 
-			time.Sleep(10 * time.Second) // TODO: Delete this
-
 			w.WriteHeader(http.StatusAccepted)
 			w.Write([]byte("Node added successfully"))
+			nodeJoin.Unlock()
 		}
 	/**
 	 * TODO: Delete node from cluster
@@ -128,5 +155,6 @@ func propagateAdd(nodeToSend node, data map[string]string, propagatedChan chan b
 		propagatedChan <- true
 	} else {
 		propagatedChan <- false
+		fmt.Println(nodeToSend.address, nodeToSend.port, "rejected the new node")
 	}
 }

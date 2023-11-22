@@ -43,7 +43,7 @@ func SendRequestWithData(method string, address string, port string, path string
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	// defer res.Body.Close()
 
 	if err != nil {
 		return nil, err
