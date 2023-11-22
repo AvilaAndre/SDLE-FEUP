@@ -5,28 +5,53 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+
+	"sdle.com/mod/protocol"
+	"sdle.com/mod/utils"
 )
+
+var nodes nodeManager
 
 func main() {
 	fmt.Println("Server Running...")
 
-    argsWithoutProg := os.Args[1:]
-	var server_port string = argsWithoutProg[0];
+	var serverPort string = ""
+	var loadBalancerAddress string = ""
+	var loadBalancerPort string = ""
 
-	if server_port == "" {
-		fmt.Printf("A server port must be specified") 
+	argsWithoutProg := os.Args[1:]
+	if len(argsWithoutProg) > 0 {
+		serverPort = argsWithoutProg[0]
+	}
+
+	if len(argsWithoutProg) == 3 {
+		loadBalancerAddress = argsWithoutProg[1]
+		loadBalancerPort = argsWithoutProg[2]
+	}
+
+	if serverPort == "" {
+		fmt.Println("A server port must be specified")
 		os.Exit(1)
 	}
 
+	registerRoutes()
 
-	registerRoutes();
+	ownData := make(map[string]string)
 
-	err := http.ListenAndServe(fmt.Sprintf(":%s", server_port), nil)
+	ownData["address"] = utils.GetOutboundIP().String()
+	ownData["port"] = serverPort
+
+	if loadBalancerAddress != "" && loadBalancerPort != "" {
+		nodes.addNode(node{address: loadBalancerAddress, port: loadBalancerPort})
+		protocol.SendRequestWithData(http.MethodPut, loadBalancerAddress, loadBalancerPort, "/node/add", ownData)
+	}
+
+	err := http.ListenAndServe(fmt.Sprintf(":%s", serverPort), nil)
 
 	if errors.Is(err, http.ErrServerClosed) {
 		fmt.Printf("server closed\n")
 	} else if err != nil {
-		fmt.Printf("error starting server: %s\n", err) 
+		fmt.Printf("error starting server: %s\n", err)
 		os.Exit(1)
 	}
 }
