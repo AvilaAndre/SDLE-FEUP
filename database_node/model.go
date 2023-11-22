@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -35,7 +34,6 @@ func nodeAction(w http.ResponseWriter, r *http.Request) {
 	 */
 	case http.MethodPut:
 		{
-			log.Println("Received PUT")
 			target := make(map[string]string)
 
 			json.NewDecoder(r.Body).Decode(&target)
@@ -53,31 +51,25 @@ func nodeAction(w http.ResponseWriter, r *http.Request) {
 			propagateLock.Lock()
 			knownNodes := nodes.getNodes()
 
-			log.Println("acquired propagate lock", knownNodes)
-
 			// propagates the message that a node was just added to the cluster
 			for i := 0; i < len(knownNodes); i++ {
-				fmt.Println("propagating...")
 				// Use go channels to perform this requests and await for the responses
 				go propagateAdd(knownNodes[i], target, propagatedChan)
 			}
 
 			// wait for the responses
 			for i := 0; i < len(knownNodes); i++ {
-				log.Println(i, len(knownNodes))
 				var result bool = <-propagatedChan
-				log.Println(i, result)
 				successfulPropagation = successfulPropagation && result
 			}
 			propagateLock.Unlock()
-			log.Println("freed propagate lock")
 
 			if successfulPropagation && nodes.addNode(newNode) {
-				log.Println("propagation successful", nodes.getNodes())
+				log.Println("Node ADD ACCEPTED", newNode)
 				w.WriteHeader(http.StatusAccepted)
 				w.Write([]byte("Node added successfully"))
 			} else {
-				log.Println("propagation failed")
+				log.Println("Node ADD Rejected")
 				w.WriteHeader(http.StatusForbidden)
 				w.Write([]byte("There is already a node with that data"))
 			}
@@ -101,11 +93,8 @@ func nodeAction(w http.ResponseWriter, r *http.Request) {
 			}
 
 			nodes.addNode(newNode)
-			log.Println("New node added", newNode)
 
-			fmt.Println("zzzzzz")
-			time.Sleep(10 * time.Second)
-			fmt.Println("?")
+			time.Sleep(10 * time.Second) // TODO: Delete this
 
 			w.WriteHeader(http.StatusAccepted)
 			w.Write([]byte("Node added successfully"))
@@ -126,6 +115,7 @@ func nodeAction(w http.ResponseWriter, r *http.Request) {
 }
 
 func propagateAdd(nodeToSend node, data map[string]string, propagatedChan chan bool) {
+	// TODO: Add a timeout
 	r, err := protocol.SendRequestWithData(http.MethodPost, nodeToSend.address, nodeToSend.port, "/node/add", data)
 
 	if err != nil {

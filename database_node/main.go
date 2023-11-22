@@ -1,13 +1,9 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"log"
-	"net/http"
 	"os"
 
-	"sdle.com/mod/protocol"
 	"sdle.com/mod/utils"
 )
 
@@ -37,25 +33,15 @@ func main() {
 
 	registerRoutes()
 
-	ownData := make(map[string]string)
-
-	ownData["address"] = utils.GetOutboundIP().String()
-	ownData["port"] = serverPort
-
 	if loadBalancerAddress != "" && loadBalancerPort != "" {
-		nodes.addNode(node{address: loadBalancerAddress, port: loadBalancerPort})
-		r, err := protocol.SendRequestWithData(http.MethodPut, loadBalancerAddress, loadBalancerPort, "/node/add", ownData)
-		utils.CheckErr(err)
+		ownData := make(map[string]string)
 
-		log.Println("Tried to join the cluster:", r.Status)
-	}
-
-	err := http.ListenAndServe(fmt.Sprintf(":%s", serverPort), nil)
-
-	if errors.Is(err, http.ErrServerClosed) {
-		fmt.Printf("server closed\n")
-	} else if err != nil {
-		fmt.Printf("error starting server: %s\n", err)
-		os.Exit(1)
+		ownData["address"] = utils.GetOutboundIP().String()
+		ownData["port"] = serverPort
+		startServerAndJoinCluster(serverPort, loadBalancerAddress, loadBalancerPort, ownData)
+	} else {
+		serverRunning := make(chan bool)
+		startServer(serverPort, serverRunning)
+		<-serverRunning // waits for the server to close
 	}
 }
