@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -45,7 +45,7 @@ func joinCluster(loadBalancerAddress string, loadBalancerPort string, ownData ma
 		if r.StatusCode == 202 {
 			log.Println("Joined the cluster")
 		} else {
-			body, err := ioutil.ReadAll(r.Body)
+			body, err := io.ReadAll(r.Body)
 			if err != nil {
 				log.Println("Failed to join the cluster")
 			} else {
@@ -63,7 +63,7 @@ func joinCluster(loadBalancerAddress string, loadBalancerPort string, ownData ma
 		for i := 0; i < len(target["nodes"]); i++ {
 			newNode := target["nodes"][i]
 
-			nodes.addNode(node{address: newNode["address"], port: newNode["port"]})
+			ring.addNode(newNode["address"], newNode["port"])
 		}
 	}
 
