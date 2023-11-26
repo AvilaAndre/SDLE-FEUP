@@ -26,6 +26,8 @@ func startServerAndJoinCluster(serverPort string, loadBalancerAddress string, lo
 }
 
 func startServer(serverPort string, serverRunning chan bool) {
+	go gossip()
+
 	err := http.ListenAndServe(fmt.Sprintf(":%s", serverPort), nil)
 
 	if errors.Is(err, http.ErrServerClosed) {
@@ -39,7 +41,13 @@ func startServer(serverPort string, serverRunning chan bool) {
 
 func joinCluster(loadBalancerAddress string, loadBalancerPort string, ownData map[string]string) {
 	if loadBalancerAddress != "" && loadBalancerPort != "" {
-		r, err := protocol.SendRequestWithData(http.MethodPut, loadBalancerAddress, loadBalancerPort, "/node/add", ownData)
+		jsonData, err := json.Marshal(ownData)
+		if err != nil {
+			log.Fatalf("Error happened in JSON marshal. Err: %s", err)
+			return
+		}
+
+		r, err := protocol.SendRequestWithData(http.MethodPut, loadBalancerAddress, loadBalancerPort, "/node/add", jsonData)
 		utils.CheckErr(err)
 
 		if r.StatusCode == 202 {
@@ -63,8 +71,11 @@ func joinCluster(loadBalancerAddress string, loadBalancerPort string, ownData ma
 		for i := 0; i < len(target["nodes"]); i++ {
 			newNode := target["nodes"][i]
 
+			if newNode["address"] == "" || newNode["port"] == "" {
+				continue
+			}
+
 			ring.addNode(newNode["address"], newNode["port"])
 		}
 	}
-
 }

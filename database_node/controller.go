@@ -8,6 +8,7 @@ func registerRoutes() {
 	// http.HandleFunc("/", getRoot)
 	// http.HandleFunc("/nodes", getNodes)
 	// http.HandleFunc("/add", getAdd)
+	http.HandleFunc("/gossip", handleGossip)
 	http.HandleFunc("/node/add", nodeAdd)
 	http.HandleFunc("/ping", getPing)
 }

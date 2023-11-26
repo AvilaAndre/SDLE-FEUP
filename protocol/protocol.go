@@ -2,9 +2,7 @@ package protocol
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 )
@@ -22,16 +20,10 @@ func SendGetRequest(address string, port string, path string) (*http.Response, e
 	return res, nil
 }
 
-func SendRequestWithData(method string, address string, port string, path string, data map[string]string) (*http.Response, error) {
+func SendRequestWithData(method string, address string, port string, path string, data []byte) (*http.Response, error) {
 	requestURL := fmt.Sprintf("http://%s:%s%s", address, port, path)
 
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		log.Fatalf("Error happened in JSON marshal. Err: %s", err)
-		return nil, err
-	}
-
-	req, err := http.NewRequest(method, requestURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest(method, requestURL, bytes.NewBuffer(data))
 	if err != nil {
 		return nil, err
 	}
