@@ -13,6 +13,8 @@ var serverHostname string = ""
 
 var ring HashRing
 
+var database DatabaseInstance
+
 func main() {
 
 	var loadBalancerAddress string = ""
@@ -38,6 +40,7 @@ func main() {
 	log.Printf("Node starting... %s:%s", serverHostname, serverPort)
 
 	ring.initialize()
+	database.initialize()
 
 	if loadBalancerAddress != "" && loadBalancerPort != "" {
 		ownData := make(map[string]string)

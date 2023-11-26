@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+
+	"sdle.com/mod/protocol"
 )
 
 func getPing(w http.ResponseWriter, r *http.Request) {
@@ -28,7 +30,9 @@ func nodeAdd(w http.ResponseWriter, r *http.Request) {
 		{
 			target := make(map[string]string)
 
-			json.NewDecoder(r.Body).Decode(&target)
+			if !protocol.DecodeRequestBody(w, r.Body, target) {
+				return
+			}
 
 			// Adds the new node to the cluster
 			ring.addNode(target["address"], target["port"])
@@ -55,8 +59,7 @@ func nodeAdd(w http.ResponseWriter, r *http.Request) {
 		}
 	default:
 		{
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Wrong request type"))
+			protocol.WrongRequestType(w)
 		}
 	}
 }
@@ -67,13 +70,9 @@ func handleGossip(w http.ResponseWriter, r *http.Request) {
 	 * Upon receiving this message, the node is in charge of propagating this message to every node and await for their response
 	 */
 	case http.MethodPost:
-
 		target := make(map[string][]map[string]string)
 
-		err := json.NewDecoder(r.Body).Decode(&target)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Failed to decode gossip"))
+		if !protocol.DecodeRequestBody(w, r.Body, target) {
 			return
 		}
 

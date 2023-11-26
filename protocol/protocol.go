@@ -2,7 +2,9 @@ package protocol
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
@@ -42,4 +44,37 @@ func SendRequestWithData(method string, address string, port string, path string
 	}
 
 	return res, nil
+}
+
+const (
+	JSON_DECODE_ERROR string = "Failed to decode the given JSON."
+)
+
+func FailedToDecodeJSON(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte(JSON_DECODE_ERROR))
+}
+
+func RequestWithWrongFormat(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte("This request is in the wrong format."))
+}
+
+func WrongRequestType(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte("Wrong protocol."))
+}
+
+/**
+* Returns false if it fails to decode the body into the requested data format
+ */
+func DecodeRequestBody(w http.ResponseWriter, body io.ReadCloser, data any) bool {
+	err := json.NewDecoder(body).Decode(&data)
+
+	if err != nil {
+		FailedToDecodeJSON(w)
+		return false
+	} else {
+		return true
+	}
 }
