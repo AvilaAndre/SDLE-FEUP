@@ -322,7 +322,7 @@ pub mod crdt {
 
         // Get all items names
         pub fn get_items(&self) -> Vec<String> {
-            self.awset.elements()
+            self.items.keys()
         }
     }
 
