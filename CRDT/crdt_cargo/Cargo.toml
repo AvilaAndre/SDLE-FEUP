@@ -12,3 +12,8 @@ features = [
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
     "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
 ]
+[dev-dependencies]
+proptest = "1.0.0"
+
+[dependencies]
+rand = "0.8.5"  # You can use the latest version available
