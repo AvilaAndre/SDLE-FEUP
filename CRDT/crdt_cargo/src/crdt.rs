@@ -166,12 +166,7 @@ pub mod crdt {
         }
 
         
-        //TODO: GCounter ou pertence ao AWSet, ou não é necessário
-        // addi(e,(s, c)) -> e= name of created item, s= state, c = context
-        // rmvi(e,(s, c)) -> e= name of created item, s= state, c = context
-        //maxi(c) = find the max on context set
-        // nexti(c) = create the next (NodeId, Counter) taken into account the existing ones on context = (NodeId, Counter) set
-        //
+        
         pub fn max_i(&self, node_id: Uuid) -> u32 {
             self.context.iter()
                 .filter(|(uuid, _)| *uuid == node_id)
@@ -203,6 +198,7 @@ pub mod crdt {
             self.state.insert((item_name, node_id, new_counter));
 
         }
+
         //Here we remove all tuples from state, that have the item_name
         pub fn rmv_i(&mut self, item_name: String) {
             self.state.retain(|(name,_,_)| *name != item_name);
@@ -304,33 +300,23 @@ pub mod crdt {
             self.awset.merge(&inc_list.awset);
     
             
-            for item_name in self.awset.elements() {
-                match (self.items.get(&item_name), inc_list.items.get(&item_name)) {
-                    (Some(self_item), Some(inc_list_item)) => {
-                        // Both lists have the item, we need to merge their BoundedPNCounterv2 counters
-                        let merged_item = self_item.merge(inc_list_item);
-                        self.items.insert(item_name, merged_item);
-                    },
-                    (None, Some(inc_list_item)) => {
-                        // Item only in inc_list list, and present in merged AWSet
-                        if self.awset.contains(&item_name) {
-                            self.items.insert(item_name.clone(), inc_list_item.clone());
-                        }
-                    },
-                    (Some(_), None) => {
-                        // Item only in self list, and present in merged AWSet
-                        if inc_list.awset.contains(&item_name) {
-                            
-                        }
-                    },
-                    (None, None) => {
-                        
-                    }
-                }
+            let mut merged_items = HashMap::new();
+
+            let elements = self.awset.elements();
+
+            // Merge items based on the merged AWSet
+            for item_name in self.elements {
+                let merged_item = match (self.items.get(&item_name), inc_list.items.get(&item_name)) {
+                    (Some(self_item), Some(inc_list_item)) => self_item.merge(inc_list_item),
+                    (None, Some(inc_list_item)) | (Some(inc_list_item), None) => inc_list_item.clone(),
+                    _ => continue, // Skip items not present in either list
+                };
+
+                merged_items.insert(item_name, merged_item);
             }
-    
-            // Step 3: Handle Removals
-            self.items.retain(|item_name, _| self.awset.contains(item_name));
+
+            // Update items with merged results
+            self.items = merged_items;
         }
 
 
