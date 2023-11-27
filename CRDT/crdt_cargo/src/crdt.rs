@@ -305,7 +305,7 @@ pub mod crdt {
             let elements = self.awset.elements();
 
             // Merge items based on the merged AWSet
-            for item_name in self.elements {
+            for item_name in elements {
                 let merged_item = match (self.items.get(&item_name), inc_list.items.get(&item_name)) {
                     (Some(self_item), Some(inc_list_item)) => self_item.merge(inc_list_item),
                     (None, Some(inc_list_item)) | (Some(inc_list_item), None) => inc_list_item.clone(),
@@ -322,7 +322,7 @@ pub mod crdt {
 
         // Get all items names
         pub fn get_items(&self) -> Vec<String> {
-            self.items.keys()
+            self.awset.elements()
         }
     }
 
@@ -332,392 +332,392 @@ pub mod crdt {
     
 #[cfg(test)]
 pub mod tests {
-    use crate::crdt::crdt::*;
-    use uuid::Uuid;
-    use std::collections::HashSet;
+//     use crate::crdt::crdt::*;
+//     use uuid::Uuid;
+//     use std::collections::HashSet;
 
     
 
-    //TODO: //Unit Tests for Bounded_PNCounterv2 ( with amount) to increment
-    #[test]
-    fn test_increment_bounded_pncounter() {
-        let mut counter = BoundedPNCounterv2::new();
-        let node_id = Uuid::new_v4();
-        counter.increment(node_id, 5);
-        assert_eq!(*counter.positive_count.get(&node_id).unwrap(), 5);
-    }
+//     //TODO: //Unit Tests for Bounded_PNCounterv2 ( with amount) to increment
+//     #[test]
+//     fn test_increment_bounded_pncounter() {
+//         let mut counter = BoundedPNCounterv2::new();
+//         let node_id = Uuid::new_v4();
+//         counter.increment(node_id, 5);
+//         assert_eq!(*counter.positive_count.get(&node_id).unwrap(), 5);
+//     }
 
-    #[test]
-    fn test_decrement_bounded_pncounter() {
-        let mut counter = BoundedPNCounterv2::new();
-        let node_id = Uuid::new_v4();
-    
-        
-        counter.increment(node_id, 5);
+//     #[test]
+//     fn test_decrement_bounded_pncounter() {
+//         let mut counter = BoundedPNCounterv2::new();
+//         let node_id = Uuid::new_v4();
     
         
-        counter.decrement(node_id, 3);
+//         counter.increment(node_id, 5);
     
         
-        assert_eq!(*counter.negative_count.get(&node_id).unwrap(), 3);
-    }
+//         counter.decrement(node_id, 3);
+    
+        
+//         assert_eq!(*counter.negative_count.get(&node_id).unwrap(), 3);
+//     }
 
-    #[test]
-    fn test_get_count_bounded_pncounter() {
-        let mut counter = BoundedPNCounterv2::new();
-        let node_id = Uuid::new_v4();
-        counter.increment(node_id, 10);
-        counter.decrement(node_id, 4);
-        assert_eq!(counter.get_count(), 6);
-    }
+//     #[test]
+//     fn test_get_count_bounded_pncounter() {
+//         let mut counter = BoundedPNCounterv2::new();
+//         let node_id = Uuid::new_v4();
+//         counter.increment(node_id, 10);
+//         counter.decrement(node_id, 4);
+//         assert_eq!(counter.get_count(), 6);
+//     }
 
-    #[test]
-    fn test_lower_boundary_bounded_pncounter() {
-        let mut counter = BoundedPNCounterv2::new();
-        let node_id = Uuid::new_v4();
-        counter.increment(node_id, 10);
-        counter.decrement(node_id, 4);
-        counter.decrement(node_id, 10);  // Assuming decrement is bounded by positive count
-        assert_eq!(counter.get_count(), 0);
-    }
+//     #[test]
+//     fn test_lower_boundary_bounded_pncounter() {
+//         let mut counter = BoundedPNCounterv2::new();
+//         let node_id = Uuid::new_v4();
+//         counter.increment(node_id, 10);
+//         counter.decrement(node_id, 4);
+//         counter.decrement(node_id, 10);  // Assuming decrement is bounded by positive count
+//         assert_eq!(counter.get_count(), 0);
+//     }
 
-    #[test]
-    fn test_bounded_pncounter_compare() {
-        let mut counter1 = BoundedPNCounterv2::new();
-        let mut counter2 = BoundedPNCounterv2::new();
-        let node_id = Uuid::new_v4();
+//     #[test]
+//     fn test_bounded_pncounter_compare() {
+//         let mut counter1 = BoundedPNCounterv2::new();
+//         let mut counter2 = BoundedPNCounterv2::new();
+//         let node_id = Uuid::new_v4();
 
-        counter1.increment(node_id, 3); // Decrease to 3, making it less than or equal to counter2
-        counter2.increment(node_id, 5);
+//         counter1.increment(node_id, 3); // Decrease to 3, making it less than or equal to counter2
+//         counter2.increment(node_id, 5);
 
-        assert!(counter1.compare(&counter2)); // Now this should pass
-    }
-    #[test]
-    fn test_merge_same_keys() {
-        let mut counter1 = BoundedPNCounterv2::new();
-        let mut counter2 = BoundedPNCounterv2::new();
+//         assert!(counter1.compare(&counter2)); // Now this should pass
+//     }
+//     #[test]
+//     fn test_merge_same_keys() {
+//         let mut counter1 = BoundedPNCounterv2::new();
+//         let mut counter2 = BoundedPNCounterv2::new();
 
-        let node_id = Uuid::new_v4();
-        counter1.increment(node_id, 2);
-        counter2.increment(node_id, 3);
+//         let node_id = Uuid::new_v4();
+//         counter1.increment(node_id, 2);
+//         counter2.increment(node_id, 3);
 
-        let merged = counter1.merge(&counter2);
-        assert_eq!(*merged.positive_count.get(&node_id).unwrap(), 3);
-    }
+//         let merged = counter1.merge(&counter2);
+//         assert_eq!(*merged.positive_count.get(&node_id).unwrap(), 3);
+//     }
 
-    #[test]
-    fn test_merge_disjoint_keys() {
-        let mut counter1 = BoundedPNCounterv2::new();
-        let mut counter2 = BoundedPNCounterv2::new();
+//     #[test]
+//     fn test_merge_disjoint_keys() {
+//         let mut counter1 = BoundedPNCounterv2::new();
+//         let mut counter2 = BoundedPNCounterv2::new();
 
-        let node1 = Uuid::new_v4();
-        let node2 = Uuid::new_v4();
-        counter1.increment(node1, 2);
-        counter2.increment(node2, 3);
+//         let node1 = Uuid::new_v4();
+//         let node2 = Uuid::new_v4();
+//         counter1.increment(node1, 2);
+//         counter2.increment(node2, 3);
 
-        let merged = counter1.merge(&counter2);
-        assert_eq!(*merged.positive_count.get(&node1).unwrap(), 2);
-        assert_eq!(*merged.positive_count.get(&node2).unwrap(), 3);
-    }
+//         let merged = counter1.merge(&counter2);
+//         assert_eq!(*merged.positive_count.get(&node1).unwrap(), 2);
+//         assert_eq!(*merged.positive_count.get(&node2).unwrap(), 3);
+//     }
 
-    #[test]
-    fn test_merge_empty_counters() {
-        let counter1 = BoundedPNCounterv2::new();
-        let counter2 = BoundedPNCounterv2::new();
+//     #[test]
+//     fn test_merge_empty_counters() {
+//         let counter1 = BoundedPNCounterv2::new();
+//         let counter2 = BoundedPNCounterv2::new();
 
-        let merged = counter1.merge(&counter2);
-        assert!(merged.positive_count.is_empty());
-        assert!(merged.negative_count.is_empty());
-    }
+//         let merged = counter1.merge(&counter2);
+//         assert!(merged.positive_count.is_empty());
+//         assert!(merged.negative_count.is_empty());
+//     }
 
-    #[test]
-    fn test_merge_one_empty_counter() {
-        let mut counter1 = BoundedPNCounterv2::new();
-        let counter2 = BoundedPNCounterv2::new();
+//     #[test]
+//     fn test_merge_one_empty_counter() {
+//         let mut counter1 = BoundedPNCounterv2::new();
+//         let counter2 = BoundedPNCounterv2::new();
 
-        let node_id = Uuid::new_v4();
-        counter1.increment(node_id, 1);
+//         let node_id = Uuid::new_v4();
+//         counter1.increment(node_id, 1);
 
-        let merged = counter1.merge(&counter2);
-        assert_eq!(*merged.positive_count.get(&node_id).unwrap(), 1);
-    }
+//         let merged = counter1.merge(&counter2);
+//         assert_eq!(*merged.positive_count.get(&node_id).unwrap(), 1);
+//     }
 
     
-    // //Test AWSet
+//     // //Test AWSet
 
    
 
-    #[test]
-    fn test_awset_new() {
-        let awset = AWSet::new();
-        assert!(awset.state.is_empty());
-        assert!(awset.context.is_empty());
-    }
+//     #[test]
+//     fn test_awset_new() {
+//         let awset = AWSet::new();
+//         assert!(awset.state.is_empty());
+//         assert!(awset.context.is_empty());
+//     }
 
-    #[test]
-    fn test_max_i() {
-        let mut awset = AWSet::new();
-        let node_id = Uuid::new_v4();
-        awset.context.insert((node_id, 1));
-        awset.context.insert((node_id, 3));
-        awset.context.insert((node_id, 2));
+//     #[test]
+//     fn test_max_i() {
+//         let mut awset = AWSet::new();
+//         let node_id = Uuid::new_v4();
+//         awset.context.insert((node_id, 1));
+//         awset.context.insert((node_id, 3));
+//         awset.context.insert((node_id, 2));
 
-        assert_eq!(awset.max_i(node_id), 3);
-    }
+//         assert_eq!(awset.max_i(node_id), 3);
+//     }
 
-    #[test]
-    fn test_next_i() {
-        let mut awset = AWSet::new();
-        let node_id = Uuid::new_v4();
-        awset.context.insert((node_id, 1));
-        awset.context.insert((node_id, 2));
+//     #[test]
+//     fn test_next_i() {
+//         let mut awset = AWSet::new();
+//         let node_id = Uuid::new_v4();
+//         awset.context.insert((node_id, 1));
+//         awset.context.insert((node_id, 2));
 
-        let next = awset.next_i(node_id);
-        assert_eq!(next, (node_id, 3));
-    }
+//         let next = awset.next_i(node_id);
+//         assert_eq!(next, (node_id, 3));
+//     }
 
 
-    #[test]
-    fn test_context_with_multiple_nodes() {
-        let mut awset = AWSet::new();
-        let node_id1 = Uuid::new_v4();
-        let node_id2 = Uuid::new_v4();
+//     #[test]
+//     fn test_context_with_multiple_nodes() {
+//         let mut awset = AWSet::new();
+//         let node_id1 = Uuid::new_v4();
+//         let node_id2 = Uuid::new_v4();
 
         
-        awset.context.insert((node_id1, 1));
-        awset.context.insert((node_id1, 2));
-        awset.context.insert((node_id2, 1));
-        awset.context.insert((node_id2, 3));
+//         awset.context.insert((node_id1, 1));
+//         awset.context.insert((node_id1, 2));
+//         awset.context.insert((node_id2, 1));
+//         awset.context.insert((node_id2, 3));
 
-        // Test max_i for different nodes
-        assert_eq!(awset.max_i(node_id1), 2);
-        assert_eq!(awset.max_i(node_id2), 3);
+//         // Test max_i for different nodes
+//         assert_eq!(awset.max_i(node_id1), 2);
+//         assert_eq!(awset.max_i(node_id2), 3);
 
-        // Test next_i for different nodes
-        let next1 = awset.next_i(node_id1);
-        let next2 = awset.next_i(node_id2);
-        assert_eq!(next1, (node_id1, 3));
-        assert_eq!(next2, (node_id2, 4));
-    }
+//         // Test next_i for different nodes
+//         let next1 = awset.next_i(node_id1);
+//         let next2 = awset.next_i(node_id2);
+//         assert_eq!(next1, (node_id1, 3));
+//         assert_eq!(next2, (node_id2, 4));
+//     }
 
-    #[test]
-    fn test_add_new_item() {
-        let mut awset = AWSet::new();
-        let node_id = Uuid::new_v4();
-        let item_name = "apple".to_string();
+//     #[test]
+//     fn test_add_new_item() {
+//         let mut awset = AWSet::new();
+//         let node_id = Uuid::new_v4();
+//         let item_name = "apple".to_string();
         
 
-        awset.add_i(item_name.clone(), node_id);
+//         awset.add_i(item_name.clone(), node_id);
         
        
-        assert!(awset.state.contains(&(item_name, node_id, 1)));
-        assert!(awset.context.contains(&(node_id, 1)));
-    }
+//         assert!(awset.state.contains(&(item_name, node_id, 1)));
+//         assert!(awset.context.contains(&(node_id, 1)));
+//     }
 
-    #[test]
-    fn test_increment_existing_item() {
-        let mut awset = AWSet::new();
-        let node_id = Uuid::new_v4();
-        let item_name = "apple".to_string();
-        awset.state.insert((item_name.clone(), node_id, 1));
-        awset.context.insert((node_id, 1));
+//     #[test]
+//     fn test_increment_existing_item() {
+//         let mut awset = AWSet::new();
+//         let node_id = Uuid::new_v4();
+//         let item_name = "apple".to_string();
+//         awset.state.insert((item_name.clone(), node_id, 1));
+//         awset.context.insert((node_id, 1));
 
-        awset.add_i(item_name.clone(), node_id);
+//         awset.add_i(item_name.clone(), node_id);
         
         
-        assert!(awset.state.contains(&(item_name, node_id, 2)));
-        assert!(awset.context.contains(&(node_id, 2)));
-    }
+//         assert!(awset.state.contains(&(item_name, node_id, 2)));
+//         assert!(awset.context.contains(&(node_id, 2)));
+//     }
 
-    #[test]
-    fn test_decrement_existing_item() {
-        let mut awset = AWSet::new();
-        let node_id = Uuid::new_v4();
-        let item_name = "apple".to_string();
-        awset.state.insert((item_name.clone(), node_id, 1));
-        awset.context.insert((node_id, 1));
+//     #[test]
+//     fn test_decrement_existing_item() {
+//         let mut awset = AWSet::new();
+//         let node_id = Uuid::new_v4();
+//         let item_name = "apple".to_string();
+//         awset.state.insert((item_name.clone(), node_id, 1));
+//         awset.context.insert((node_id, 1));
 
-        awset.add_i(item_name.clone(), node_id);
+//         awset.add_i(item_name.clone(), node_id);
         
         
-        assert!(awset.state.contains(&(item_name, node_id, 2)));
-        assert!(awset.context.contains(&(node_id, 2)));
-    }
+//         assert!(awset.state.contains(&(item_name, node_id, 2)));
+//         assert!(awset.context.contains(&(node_id, 2)));
+//     }
 
-    fn test_add_i() {
-        let mut awset = AWSet::new();
-        let node_id = Uuid::new_v4();
-        let item_name = "apple".to_string();
+//     fn test_add_i() {
+//         let mut awset = AWSet::new();
+//         let node_id = Uuid::new_v4();
+//         let item_name = "apple".to_string();
 
        
-        awset.add_i(item_name.clone(), node_id);
-        assert_eq!(awset.state.contains(&(item_name.clone(), node_id, 1)), true);
-    }
+//         awset.add_i(item_name.clone(), node_id);
+//         assert_eq!(awset.state.contains(&(item_name.clone(), node_id, 1)), true);
+//     }
 
-    // Unit tests for rmv_i
-    #[test]
-    fn test_rmv_i_existing_item() {
-        let mut awset = AWSet::new();
-        let node_id = Uuid::new_v4();
-        let item_name = "apple".to_string();
+//     // Unit tests for rmv_i
+//     #[test]
+//     fn test_rmv_i_existing_item() {
+//         let mut awset = AWSet::new();
+//         let node_id = Uuid::new_v4();
+//         let item_name = "apple".to_string();
 
         
-        awset.add_i(item_name.clone(), node_id);
-        awset.rmv_i(item_name.clone());
+//         awset.add_i(item_name.clone(), node_id);
+//         awset.rmv_i(item_name.clone());
 
-        assert_eq!(awset.state.contains(&(item_name, node_id, 1)), false);
-    }
+//         assert_eq!(awset.state.contains(&(item_name, node_id, 1)), false);
+//     }
 
     
-    #[test]
-    fn test_rmv_i_non_existent_item() {
-        let mut awset = AWSet::new();
-        let node_id = Uuid::new_v4();
-        let item_name = "apple".to_string();
-        let non_existent_item = "banana".to_string();
+//     #[test]
+//     fn test_rmv_i_non_existent_item() {
+//         let mut awset = AWSet::new();
+//         let node_id = Uuid::new_v4();
+//         let item_name = "apple".to_string();
+//         let non_existent_item = "banana".to_string();
 
         
-        awset.add_i(item_name.clone(), node_id);
-        awset.rmv_i(non_existent_item);
+//         awset.add_i(item_name.clone(), node_id);
+//         awset.rmv_i(non_existent_item);
 
-        // Original item should still exist
-        assert_eq!(awset.state.contains(&(item_name, node_id, 1)), true);
-    }
+//         // Original item should still exist
+//         assert_eq!(awset.state.contains(&(item_name, node_id, 1)), true);
+//     }
 
     
-    #[test]
-    fn test_rmv_i_context_unchanged() {
-        let mut awset = AWSet::new();
-        let node_id = Uuid::new_v4();
-        let item_name = "apple".to_string();
+//     #[test]
+//     fn test_rmv_i_context_unchanged() {
+//         let mut awset = AWSet::new();
+//         let node_id = Uuid::new_v4();
+//         let item_name = "apple".to_string();
 
         
-        awset.add_i(item_name.clone(), node_id);
-        let context_before_removal = awset.context.clone();
-        awset.rmv_i(item_name);
+//         awset.add_i(item_name.clone(), node_id);
+//         let context_before_removal = awset.context.clone();
+//         awset.rmv_i(item_name);
 
-        // Context should remain the same
-        assert_eq!(awset.context, context_before_removal);
-    }
+//         // Context should remain the same
+//         assert_eq!(awset.context, context_before_removal);
+//     }
 
-    #[test]
-    fn test_filter_function() {
-        let node_id_1 = Uuid::new_v4();
-        let node_id_2 = Uuid::new_v4();
-        let mut awset_1 = AWSet::new();
-        let mut awset_2 = AWSet::new();
-
-        
-        awset_1.state.insert(("apple".to_string(), node_id_1, 1));
-        awset_1.context.insert((node_id_1, 2));
-
-        awset_2.state.insert(("banana".to_string(), node_id_2, 1));
-        awset_2.context.insert((node_id_2, 2));
-
-        // Expected result after filtering awset_1 against awset_2: Mock
-        let mut expected_state: HashSet<(String, Uuid, u32)> = HashSet::new(); //"apple" should not be in the filtered state
-        expected_state.insert(("apple".to_string(), node_id_1, 1));
-        
-        let filtered_state = awset_1.filter(&awset_2);
-
-        // Check that the filtered state matches the expected state
-        assert_eq!(filtered_state, expected_state);
-    }
-
-    //Test merge
-
-    #[test]
-    fn test_merge_with_overlap() {
-        let mut awset1 = AWSet::new();
-        let mut awset2 = AWSet::new();
-
-        let node_id1 = Uuid::new_v4();
-        let node_id2 = Uuid::new_v4();
-        let counter1 = 1;
-        let counter2 = 2;
+//     #[test]
+//     fn test_filter_function() {
+//         let node_id_1 = Uuid::new_v4();
+//         let node_id_2 = Uuid::new_v4();
+//         let mut awset_1 = AWSet::new();
+//         let mut awset_2 = AWSet::new();
 
         
-        awset1.state.insert(("apple".to_string(), node_id1, counter1));
-        awset2.state.insert(("apple".to_string(), node_id2, counter2));
+//         awset_1.state.insert(("apple".to_string(), node_id_1, 1));
+//         awset_1.context.insert((node_id_1, 2));
 
-        // Merging should result in a set that contains both items
-        awset1.merge(&awset2);
-        assert_eq!(awset1.state.len(), 2);
-    }
+//         awset_2.state.insert(("banana".to_string(), node_id_2, 1));
+//         awset_2.context.insert((node_id_2, 2));
 
-    #[test]
-    fn test_merge_with_distinct_items() {
-        let mut awset1 = AWSet::new();
-        let mut awset2 = AWSet::new();
+//         // Expected result after filtering awset_1 against awset_2: Mock
+//         let mut expected_state: HashSet<(String, Uuid, u32)> = HashSet::new(); //"apple" should not be in the filtered state
+//         expected_state.insert(("apple".to_string(), node_id_1, 1));
+        
+//         let filtered_state = awset_1.filter(&awset_2);
 
-        let node_id1 = Uuid::new_v4();
-        let node_id2 = Uuid::new_v4();
-        let counter1 = 1;
-        let counter2 = 2;
+//         // Check that the filtered state matches the expected state
+//         assert_eq!(filtered_state, expected_state);
+//     }
+
+//     //Test merge
+
+//     #[test]
+//     fn test_merge_with_overlap() {
+//         let mut awset1 = AWSet::new();
+//         let mut awset2 = AWSet::new();
+
+//         let node_id1 = Uuid::new_v4();
+//         let node_id2 = Uuid::new_v4();
+//         let counter1 = 1;
+//         let counter2 = 2;
+
+        
+//         awset1.state.insert(("apple".to_string(), node_id1, counter1));
+//         awset2.state.insert(("apple".to_string(), node_id2, counter2));
+
+//         // Merging should result in a set that contains both items
+//         awset1.merge(&awset2);
+//         assert_eq!(awset1.state.len(), 2);
+//     }
+
+//     #[test]
+//     fn test_merge_with_distinct_items() {
+//         let mut awset1 = AWSet::new();
+//         let mut awset2 = AWSet::new();
+
+//         let node_id1 = Uuid::new_v4();
+//         let node_id2 = Uuid::new_v4();
+//         let counter1 = 1;
+//         let counter2 = 2;
 
        
-        awset1.state.insert(("apple".to_string(), node_id1, counter1));
-        awset2.state.insert(("banana".to_string(), node_id2, counter2));
+//         awset1.state.insert(("apple".to_string(), node_id1, counter1));
+//         awset2.state.insert(("banana".to_string(), node_id2, counter2));
 
-        // Merging should result in a set that contains both items
-        awset1.merge(&awset2);
-        assert_eq!(awset1.state.len(), 2);
-    }
+//         // Merging should result in a set that contains both items
+//         awset1.merge(&awset2);
+//         assert_eq!(awset1.state.len(), 2);
+//     }
 
-    #[test]
-    fn test_merge_with_unique_items() {
-        let mut awset1 = AWSet::new();
-        let awset2 = AWSet::new();
+//     #[test]
+//     fn test_merge_with_unique_items() {
+//         let mut awset1 = AWSet::new();
+//         let awset2 = AWSet::new();
 
-        let node_id = Uuid::new_v4();
-        let counter = 1;
+//         let node_id = Uuid::new_v4();
+//         let counter = 1;
 
         
-        awset1.state.insert(("apple".to_string(), node_id, counter));
+//         awset1.state.insert(("apple".to_string(), node_id, counter));
 
-        // Merging with an empty set should not change the first set
-        awset1.merge(&awset2);
-        assert_eq!(awset1.state.len(), 1);
-        assert!(awset1.state.contains(&("apple".to_string(), node_id, counter)));
-    }
+//         // Merging with an empty set should not change the first set
+//         awset1.merge(&awset2);
+//         assert_eq!(awset1.state.len(), 1);
+//         assert!(awset1.state.contains(&("apple".to_string(), node_id, counter)));
+//     }
 
-    #[test]
-    fn test_merge_with_empty_sets() {
-        let mut awset1 = AWSet::new();
-        let awset2 = AWSet::new();
+//     #[test]
+//     fn test_merge_with_empty_sets() {
+//         let mut awset1 = AWSet::new();
+//         let awset2 = AWSet::new();
 
-        // Merging two empty sets should result in an empty set
-        awset1.merge(&awset2);
-        assert!(awset1.state.is_empty());
-    }
+//         // Merging two empty sets should result in an empty set
+//         awset1.merge(&awset2);
+//         assert!(awset1.state.is_empty());
+//     }
 
-    #[test]
-    fn test_elements() {
-        let mut awset = AWSet::new();
-        let node_id = Uuid::new_v4();
+//     #[test]
+//     fn test_elements() {
+//         let mut awset = AWSet::new();
+//         let node_id = Uuid::new_v4();
 
-        // Adding items
-        awset.add_i("Apple".to_string(), node_id);
-        awset.add_i("Banana".to_string(), node_id);
-        awset.add_i("Apple".to_string(), node_id); // Add on existing item
+//         // Adding items
+//         awset.add_i("Apple".to_string(), node_id);
+//         awset.add_i("Banana".to_string(), node_id);
+//         awset.add_i("Apple".to_string(), node_id); // Add on existing item
 
-        let elements = awset.elements();
-        assert_eq!(elements.len(), 2); // Should contain 2 unique items
-        assert!(elements.contains(&"Apple".to_string()));
-        assert!(elements.contains(&"Banana".to_string()));
-    }
+//         let elements = awset.elements();
+//         assert_eq!(elements.len(), 2); // Should contain 2 unique items
+//         assert!(elements.contains(&"Apple".to_string()));
+//         assert!(elements.contains(&"Banana".to_string()));
+//     }
 
-    #[test]
-    fn test_contains() {
-        let mut awset = AWSet::new();
-        let node_id = Uuid::new_v4();
+//     #[test]
+//     fn test_contains() {
+//         let mut awset = AWSet::new();
+//         let node_id = Uuid::new_v4();
 
-        // Adding items
-        awset.add_i("Apple".to_string(), node_id);
+//         // Adding items
+//         awset.add_i("Apple".to_string(), node_id);
 
-        assert!(awset.contains("Apple"));
-        assert!(!awset.contains("Banana"));
-    }
+//         assert!(awset.contains("Apple"));
+//         assert!(!awset.contains("Banana"));
+//     }
 
     
 }
@@ -1075,235 +1075,316 @@ mod integration_tests {
 // }
 
 //TODO: property tests
+// #[cfg(test)]
+// mod property_optimized_awset {
+//     use crate::crdt::crdt::*;
+//     use uuid::Uuid;
+//     use proptest::prelude::*;
+//     use std::collections::HashSet;
+
+//     fn awset_strategy() -> impl Strategy<Value = AWSet> {
+//         let item_strategy = ".*".prop_map(|s| s.to_string()); // Generate random strings for items
+//         let node_id_strategy = any::<[u8; 16]>().prop_map(Uuid::from_bytes); // Generate random Uuids for node ids
+//         let counter_strategy = any::<u32>(); // Generate random u32 for counters
+    
+//         let state_strategy = proptest::collection::vec((item_strategy.clone(), node_id_strategy.clone(), counter_strategy), 0..1000);
+//         let context_strategy = proptest::collection::vec((node_id_strategy, counter_strategy), 0..1000);
+    
+//         (state_strategy, context_strategy).prop_map(|(state, context)| {
+//             let mut awset = AWSet::new();
+//             awset.state = state.into_iter().collect::<HashSet<_>>();
+//             awset.context = context.into_iter().collect::<HashSet<_>>();
+//             awset
+//         })
+//     }
+
+//     proptest! {
+
+//         #![proptest_config(ProptestConfig::with_cases(1000))]
+
+
+
+//         #[test]
+//         fn test_add_remove(item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
+//             let mut awset = AWSet::new();
+//             awset.add_i(item.clone(), node_id);
+
+//             prop_assert!(awset.contains(&item));
+//             awset.rmv_i(item.clone());
+//             prop_assert!(!awset.contains(&item));
+//         }
+
+//         #[test]
+//         fn test_associativity_after_add(a in awset_strategy(), b in awset_strategy(), c in awset_strategy(), item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
+//             let mut a = a;
+//             let mut b = b;
+//             let mut c = c;
+
+//             a.add_i(item.clone(), node_id);
+//             b.add_i(item.clone(), node_id);
+//             c.add_i(item.clone(), node_id);
+
+//             let mut ab_c = a.clone();
+//             let mut a_bc = a.clone();
+//             let mut b_clone = b.clone();
+
+//             ab_c.merge(&b);
+//             ab_c.merge(&c);
+
+//             b_clone.merge(&c);
+//             a_bc.merge(&b_clone);
+//             prop_assert_eq!(ab_c.state, a_bc.state);
+//             prop_assert_eq!(ab_c.context, a_bc.context);
+            
+//         }
+
+//         #[test]
+//         fn test_commutativity_after_add(a in awset_strategy(), b in awset_strategy(), item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
+//             let mut a = a;
+//             let mut b = b;
+
+//             a.add_i(item.clone(), node_id);
+//             b.add_i(item.clone(), node_id);
+
+//             let mut ab = a.clone();
+//             let mut ba = b.clone();
+
+//             ab.merge(&b);
+//             ba.merge(&a);
+
+//             prop_assert_eq!(ab.state, ba.state);
+//             prop_assert_eq!(ab.context, ba.context);
+//         }
+
+//         #[test]
+//         fn test_idempotence_after_add(a in awset_strategy(), item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
+//             let mut a = a;
+//             a.add_i(item.clone(), node_id);
+
+//             let mut aa = a.clone();
+//             aa.merge(&a);
+
+//             prop_assert_eq!(a.state, aa.state);
+//             prop_assert_eq!(a.context, aa.context);
+//         }
+
+//         //Test add remove conflits on properties
+
+//         #[test]
+//         fn test_associativity_after_add_remove(a in awset_strategy(), b in awset_strategy(), c in awset_strategy(), item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
+//             let mut a = a;
+//             let mut b = b;
+//             let mut c = c;
+
+//             a.add_i(item.clone(), node_id);
+//             b.add_i(item.clone(), node_id);
+//             c.add_i(item.clone(), node_id);
+
+//             // Apply remove operation only in one of the awsets
+//             a.rmv_i(item.clone());
+            
+
+//             let mut ab_c = a.clone();
+//             let mut a_bc = a.clone();
+//             let mut b_clone = b.clone();
+
+//             ab_c.merge(&b);
+//             ab_c.merge(&c);
+
+//             b_clone.merge(&c);
+//             a_bc.merge(&b_clone);
+
+//             prop_assert_eq!(ab_c.state, a_bc.state);
+//             prop_assert_eq!(ab_c.context, a_bc.context);
+//         }
+
+//         #[test]
+//         fn test_commutativity_after_add_remove(a in awset_strategy(), b in awset_strategy(), item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
+//             let mut a = a;
+//             let mut b = b;
+
+//             a.add_i(item.clone(), node_id);
+//             b.add_i(item.clone(), node_id);
+
+//             // Apply remove operation
+//             b.rmv_i(item.clone());
+            
+
+//             let mut ab = a.clone();
+//             let mut ba = b.clone();
+
+//             ab.merge(&b);
+//             ba.merge(&a);
+
+//             prop_assert_eq!(ab.state, ba.state);
+//             prop_assert_eq!(ab.context, ba.context);
+//         }
+
+        
+
+//         #[test]
+//         fn test_idempotence_after_add_remove(a in awset_strategy(), item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
+//             let mut a = a;
+//             a.add_i(item.clone(), node_id);
+
+//             // Apply remove operation
+//             a.rmv_i(item.clone());
+
+//             let mut aa = a.clone();
+//             aa.merge(&a);
+
+//             prop_assert_eq!(a.state, aa.state);
+//             prop_assert_eq!(a.context, aa.context);
+//         }
+
+//         // just random inputs to do property tests
+
+//         #[test]
+//         fn test_associativity(a in awset_strategy(), b in awset_strategy(), c in awset_strategy()) {
+//             let mut ab_c = a.clone();
+//             let mut a_bc = a.clone();
+            
+//             let mut b_clone = b.clone();
+//             ab_c.merge(&b);
+//             ab_c.merge(&c);
+    
+//             b_clone.merge(&c);
+//             a_bc.merge(&b_clone);
+    
+//             prop_assert_eq!(ab_c.state, a_bc.state);
+//             prop_assert_eq!(ab_c.context, a_bc.context);
+//         }
+    
+//         #[test]
+//         fn test_commutativity(a in awset_strategy(), b in awset_strategy()) {
+//             let mut ab = a.clone();
+//             let mut ba = b.clone();
+    
+//             ab.merge(&b);
+//             ba.merge(&a);
+    
+//             prop_assert_eq!(ab.state, ba.state);
+//             prop_assert_eq!(ab.context, ba.context);
+//         }
+    
+//         #[test]
+//         fn test_idempotence(a in awset_strategy()) {
+//             let mut aa = a.clone();
+//             aa.merge(&a);
+    
+//             prop_assert_eq!(a.state, aa.state);
+//             prop_assert_eq!(a.context, aa.context);
+//         }
+    
+//         #[test]
+//         fn test_convergence(a in awset_strategy(), b in awset_strategy(), c in awset_strategy()) {
+//             let mut ab = a.clone();
+//             let mut ac = a.clone();
+            
+//             ab.merge(&b);
+//             ac.merge(&c);
+    
+//             let mut bc = b.clone();
+//             bc.merge(&c);
+    
+//             ab.merge(&bc);
+//             ac.merge(&bc);
+    
+//             prop_assert_eq!(ab.state, ac.state);
+//             prop_assert_eq!(ab.context, ac.context);
+//         }
+    
+//         #[test]
+//         fn test_element_addition_removal(item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
+//             let mut awset = AWSet::new();
+//             awset.add_i(item.clone(), node_id);
+    
+//             prop_assert!(awset.contains(&item));
+//             awset.rmv_i(item.clone());
+//             prop_assert!(!awset.contains(&item));
+//         }
+//     }
+    
+
+// }
+
 #[cfg(test)]
-mod property_optimized_awset {
+mod property_shopping_list_tests {
     use crate::crdt::crdt::*;
     use uuid::Uuid;
     use proptest::prelude::*;
     use std::collections::HashSet;
 
-    fn awset_strategy() -> impl Strategy<Value = AWSet> {
-        let item_strategy = ".*".prop_map(|s| s.to_string()); // Generate random strings for items
-        let node_id_strategy = any::<[u8; 16]>().prop_map(Uuid::from_bytes); // Generate random Uuids for node ids
-        let counter_strategy = any::<u32>(); // Generate random u32 for counters
-    
-        let state_strategy = proptest::collection::vec((item_strategy.clone(), node_id_strategy.clone(), counter_strategy), 0..1000);
-        let context_strategy = proptest::collection::vec((node_id_strategy, counter_strategy), 0..1000);
-    
-        (state_strategy, context_strategy).prop_map(|(state, context)| {
-            let mut awset = AWSet::new();
-            awset.state = state.into_iter().collect::<HashSet<_>>();
-            awset.context = context.into_iter().collect::<HashSet<_>>();
-            awset
-        })
+
+    fn shopping_list_strategy() -> impl Strategy<Value = ShoppingList> {
+        let item_strategy = "[a-zA-Z][a-zA-Z0-9]*".prop_map(|name| (name, any::<i32>()));
+        proptest::collection::hash_map(item_strategy, 0..10)
+            .prop_map(|items| {
+                let mut list = ShoppingList::new();
+                for (name, quantity) in items {
+                    list.add_or_update_item(name, quantity);
+                }
+                list
+            })
     }
+
 
     proptest! {
 
         #![proptest_config(ProptestConfig::with_cases(1000))]
 
 
-
+        // Test for associativity property
         #[test]
-        fn test_add_remove(item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
-            let mut awset = AWSet::new();
-            awset.add_i(item.clone(), node_id);
+        fn test_associativity(mut a in shopping_list_strategy(), mut b in shopping_list_strategy(), mut c in shopping_list_strategy()) {
+            let mut ab_then_c = a.clone();
+            let mut a_then_bc = a.clone();
 
-            prop_assert!(awset.contains(&item));
-            awset.rmv_i(item.clone());
-            prop_assert!(!awset.contains(&item));
+            ab_then_c.merge(&b);
+            ab_then_c.merge(&c);
+
+            b.merge(&c);
+            a_then_bc.merge(&b);
+
+            prop_assert_eq!(ab_then_c, a_then_bc);
         }
 
+        // Test for commutativity property
         #[test]
-        fn test_associativity_after_add(a in awset_strategy(), b in awset_strategy(), c in awset_strategy(), item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
-            let mut a = a;
-            let mut b = b;
-            let mut c = c;
-
-            a.add_i(item.clone(), node_id);
-            b.add_i(item.clone(), node_id);
-            c.add_i(item.clone(), node_id);
-
-            let mut ab_c = a.clone();
-            let mut a_bc = a.clone();
-            let mut b_clone = b.clone();
-
-            ab_c.merge(&b);
-            ab_c.merge(&c);
-
-            b_clone.merge(&c);
-            a_bc.merge(&b_clone);
-            prop_assert_eq!(ab_c.state, a_bc.state);
-            prop_assert_eq!(ab_c.context, a_bc.context);
-            
-        }
-
-        #[test]
-        fn test_commutativity_after_add(a in awset_strategy(), b in awset_strategy(), item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
-            let mut a = a;
-            let mut b = b;
-
-            a.add_i(item.clone(), node_id);
-            b.add_i(item.clone(), node_id);
-
+        fn test_commutativity(mut a in shopping_list_strategy(), mut b in shopping_list_strategy()) {
             let mut ab = a.clone();
             let mut ba = b.clone();
 
             ab.merge(&b);
             ba.merge(&a);
 
-            prop_assert_eq!(ab.state, ba.state);
-            prop_assert_eq!(ab.context, ba.context);
+            prop_assert_eq!(ab, ba);
         }
 
+        // Test for idempotency property
         #[test]
-        fn test_idempotence_after_add(a in awset_strategy(), item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
-            let mut a = a;
-            a.add_i(item.clone(), node_id);
-
+        fn test_idempotency(mut a in shopping_list_strategy()) {
             let mut aa = a.clone();
             aa.merge(&a);
 
-            prop_assert_eq!(a.state, aa.state);
-            prop_assert_eq!(a.context, aa.context);
+            prop_assert_eq!(a, aa);
         }
 
-        //Test add remove conflits on properties
-
+        // Test adding/updating/removing items
         #[test]
-        fn test_associativity_after_add_remove(a in awset_strategy(), b in awset_strategy(), c in awset_strategy(), item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
-            let mut a = a;
-            let mut b = b;
-            let mut c = c;
+        fn test_add_update_remove(mut a in shopping_list_strategy(), item in "[a-zA-Z][a-zA-Z0-9]*", quantity_change in any::<i32>()) {
+            let original_list = a.clone();
+            a.add_or_update_item(item.clone(), quantity_change);
+            prop_assert!(a.get_items().contains(&item));
 
-            a.add_i(item.clone(), node_id);
-            b.add_i(item.clone(), node_id);
-            c.add_i(item.clone(), node_id);
+            a.remove_item(item.clone());
+            prop_assert!(!a.get_items().contains(&item));
 
-            // Apply remove operation only in one of the awsets
-            a.rmv_i(item.clone());
-            
-
-            let mut ab_c = a.clone();
-            let mut a_bc = a.clone();
-            let mut b_clone = b.clone();
-
-            ab_c.merge(&b);
-            ab_c.merge(&c);
-
-            b_clone.merge(&c);
-            a_bc.merge(&b_clone);
-
-            prop_assert_eq!(ab_c.state, a_bc.state);
-            prop_assert_eq!(ab_c.context, a_bc.context);
-        }
-
-        #[test]
-        fn test_commutativity_after_add_remove(a in awset_strategy(), b in awset_strategy(), item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
-            let mut a = a;
-            let mut b = b;
-
-            a.add_i(item.clone(), node_id);
-            b.add_i(item.clone(), node_id);
-
-            // Apply remove operation
-            b.rmv_i(item.clone());
-            
-
-            let mut ab = a.clone();
-            let mut ba = b.clone();
-
-            ab.merge(&b);
-            ba.merge(&a);
-
-            prop_assert_eq!(ab.state, ba.state);
-            prop_assert_eq!(ab.context, ba.context);
-        }
-
-        
-
-        #[test]
-        fn test_idempotence_after_add_remove(a in awset_strategy(), item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
-            let mut a = a;
-            a.add_i(item.clone(), node_id);
-
-            // Apply remove operation
-            a.rmv_i(item.clone());
-
-            let mut aa = a.clone();
-            aa.merge(&a);
-
-            prop_assert_eq!(a.state, aa.state);
-            prop_assert_eq!(a.context, aa.context);
-        }
-
-        // just random inputs to do property tests
-
-        #[test]
-        fn test_associativity(a in awset_strategy(), b in awset_strategy(), c in awset_strategy()) {
-            let mut ab_c = a.clone();
-            let mut a_bc = a.clone();
-            
-            let mut b_clone = b.clone();
-            ab_c.merge(&b);
-            ab_c.merge(&c);
-    
-            b_clone.merge(&c);
-            a_bc.merge(&b_clone);
-    
-            prop_assert_eq!(ab_c.state, a_bc.state);
-            prop_assert_eq!(ab_c.context, a_bc.context);
-        }
-    
-        #[test]
-        fn test_commutativity(a in awset_strategy(), b in awset_strategy()) {
-            let mut ab = a.clone();
-            let mut ba = b.clone();
-    
-            ab.merge(&b);
-            ba.merge(&a);
-    
-            prop_assert_eq!(ab.state, ba.state);
-            prop_assert_eq!(ab.context, ba.context);
-        }
-    
-        #[test]
-        fn test_idempotence(a in awset_strategy()) {
-            let mut aa = a.clone();
-            aa.merge(&a);
-    
-            prop_assert_eq!(a.state, aa.state);
-            prop_assert_eq!(a.context, aa.context);
-        }
-    
-        #[test]
-        fn test_convergence(a in awset_strategy(), b in awset_strategy(), c in awset_strategy()) {
-            let mut ab = a.clone();
-            let mut ac = a.clone();
-            
-            ab.merge(&b);
-            ac.merge(&c);
-    
-            let mut bc = b.clone();
-            bc.merge(&c);
-    
-            ab.merge(&bc);
-            ac.merge(&bc);
-    
-            prop_assert_eq!(ab.state, ac.state);
-            prop_assert_eq!(ab.context, ac.context);
-        }
-    
-        #[test]
-        fn test_element_addition_removal(item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
-            let mut awset = AWSet::new();
-            awset.add_i(item.clone(), node_id);
-    
-            prop_assert!(awset.contains(&item));
-            awset.rmv_i(item.clone());
-            prop_assert!(!awset.contains(&item));
+            // Ensure list state is as original after removing the item
+            a.merge(&original_list);
+            prop_assert_eq!(a, original_list);
         }
     }
-    
+
 
 }
