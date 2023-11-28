@@ -22,3 +22,7 @@
 .hidden-placeholder:focus::placeholder {
     color: gray;
 }
+
+.content-width {
+    width: 36rem;
+}

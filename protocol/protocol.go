@@ -1,57 +1,80 @@
 package protocol
 
-
-const (
-	ACKNOWLEDGE = "ACKNOWLEDGE"
-	DENY = "DENY"
-	NEW_CONNECTION = "NEW_CONNECTION"
-	CONNECTION_ACCEPTED = "CONNECTION_ACCEPTED"
-	CONNECTION_REJECTED = "CONNECTION_REJECTED"
-	UPDATE_NODE_ID = "UPDATE_NODE_ID"
-	UPDATE_NODE_LEFT_NEIGHBOUR = "UPDATE_NODE_LEFT_NEIGHBOUR"
-	UPDATE_NODE_RIGHT_NEIGHBOUR = "UPDATE_NODE_RIGHT_NEIGHBOUR"
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
 )
 
-func message1(header string) [][]byte {
-	return [][]byte{[]byte(header)}
+func SendGetRequest(address string, port string, path string) (*http.Response, error) {
+	requestURL := fmt.Sprintf("http://%s:%s%s", address, port, path)
+	client := http.Client{
+		Timeout: 5 * time.Second,
+	}
+	res, err := client.Get(requestURL)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
-func message2(header string, arg1 string) [][]byte {
-	return [][]byte{[]byte(header), []byte(arg1)}
+func SendRequestWithData(method string, address string, port string, path string, data []byte) (*http.Response, error) {
+	requestURL := fmt.Sprintf("http://%s:%s%s", address, port, path)
+
+	req, err := http.NewRequest(method, requestURL, bytes.NewBuffer(data))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	// defer res.Body.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
-func message3(header string, arg1 string, arg2 string) [][]byte {
-	return [][]byte{[]byte(header), []byte(arg1), []byte(arg2)}
+const (
+	JSON_DECODE_ERROR string = "Failed to decode the given JSON."
+)
+
+func FailedToDecodeJSON(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte(JSON_DECODE_ERROR))
 }
 
-func AcknowledgeMessage() [][]byte {
-	return message1(ACKNOWLEDGE)
+func RequestWithWrongFormat(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte("This request is in the wrong format."))
 }
 
-func DenyMessage() [][]byte {
-	return message1(DENY)
+func WrongRequestType(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte("Wrong protocol."))
 }
 
-func ConnectMessage(ip string, port string) [][]byte {
-	return message3(NEW_CONNECTION, ip, port)
-}
+/**
+* Returns false if it fails to decode the body into the requested data format
+ */
+func DecodeRequestBody(w http.ResponseWriter, body io.ReadCloser, data any) bool {
+	err := json.NewDecoder(body).Decode(&data)
 
-func AcceptConnectionMessage() [][]byte {
-	return message1(CONNECTION_ACCEPTED)
-}
-
-func RejectConnectionMessage() [][]byte {
-	return message1(CONNECTION_REJECTED)
-}
-
-func UpdateNodeIDMessage(id string) [][]byte {
-	return message2(UPDATE_NODE_ID, id)
-}
-
-func UpdateNodeLeftNeighbourMessage(endpoint string, port string) [][]byte {
-	return message3(UPDATE_NODE_LEFT_NEIGHBOUR, endpoint, port)
-}
-
-func UpdateNodeRightNeighbourMessage(endpoint string, port string) [][]byte {
-	return message3(UPDATE_NODE_RIGHT_NEIGHBOUR, endpoint, port)
+	if err != nil {
+		FailedToDecodeJSON(w)
+		return false
+	} else {
+		return true
+	}
 }
