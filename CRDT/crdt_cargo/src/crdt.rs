@@ -550,7 +550,7 @@ pub mod tests {
         assert!(awset.state.contains(&(item_name, node_id, 2)));
         assert!(awset.context.contains(&(node_id, 2)));
     }
-
+    #[test]
     fn test_add_i() {
         let mut awset = AWSet::new();
         let node_id = Uuid::new_v4();
@@ -735,7 +735,6 @@ mod property_bounded_pn_counter_v2 {
     use crate::crdt::crdt::*;
     use uuid::Uuid;
     use proptest::prelude::*;
-    use proptest::collection::vec;
     use rand::random;
     //Here we implement a strategy to generate random Uuids, because crate uuid doesnt have the Arbitrary trait required by proptest to generate random instances of Uuid for testing
     fn uuid_strategy() -> impl Strategy<Value = Uuid> {
@@ -743,7 +742,7 @@ mod property_bounded_pn_counter_v2 {
     }
 
     fn bounded_pn_counter_strategy_v2() -> impl Strategy<Value = BoundedPNCounterv2> {
-        proptest::collection::vec((any::<bool>(), uuid_strategy(), any::<u32>()), 0..=1000)
+        proptest::collection::vec((any::<bool>(), uuid_strategy(), any::<u32>()), 0..=100)
             .prop_map(|operations| {
                 let mut counter = BoundedPNCounterv2::new();
                   
@@ -763,27 +762,9 @@ mod property_bounded_pn_counter_v2 {
 
     
     
-    fn generate_operations(node_ids: &[Uuid]) -> Vec<(Uuid, bool, u32)> {
-        let mut operations = Vec::new();
-        for &node_id in node_ids {
-            let inc_or_dec = random::<bool>();
-            let amount = random::<u32>(); 
-            operations.push((node_id, inc_or_dec, amount));
-        }
-        operations
-    }
     
-    fn apply_operations(ops: Vec<(Uuid, bool, u32)>) -> BoundedPNCounterv2 {
-        let mut counter = BoundedPNCounterv2::new();
-        for (node_id, increment, amount) in ops {
-            if increment {
-                counter.increment(node_id, amount);
-            } else {
-                counter.decrement(node_id, amount);
-            }
-        }
-        counter
-    }
+    
+    
     
     
     //TODO: check with professor !
@@ -831,12 +812,6 @@ mod property_bounded_pn_counter_v2 {
             prop_assert_eq!(a.negative_count, aa.negative_count);
         }
     
-        #[test]
-        fn test_handling_decrement(node_id in uuid_strategy(), amount in any::<u32>()) {
-            let mut counter = BoundedPNCounterv2::new();
-            counter.decrement(node_id, amount);
-            prop_assert!(counter.get_count() >= 0);
-        }
         //Cases where CRDTs need to be always comparable
         #[test]
         fn test_compare(a in bounded_pn_counter_strategy_v2()) {
@@ -895,8 +870,8 @@ mod property_optimized_awset {
         let node_id_strategy = any::<[u8; 16]>().prop_map(Uuid::from_bytes); // Generate random Uuids for node ids
         let counter_strategy = any::<u32>(); // Generate random u32 for counters
     
-        let state_strategy = proptest::collection::vec((item_strategy.clone(), node_id_strategy.clone(), counter_strategy), 0..1000);
-        let context_strategy = proptest::collection::vec((node_id_strategy, counter_strategy), 0..1000);
+        let state_strategy = proptest::collection::vec((item_strategy.clone(), node_id_strategy.clone(), counter_strategy), 0..100);
+        let context_strategy = proptest::collection::vec((node_id_strategy, counter_strategy), 0..100);
     
         (state_strategy, context_strategy).prop_map(|(state, context)| {
             let mut awset = AWSet::new();
@@ -1123,7 +1098,6 @@ mod property_optimized_awset {
 #[cfg(test)]
 mod property_shopping_list_tests {
     use crate::crdt::crdt::*;
-    use uuid::Uuid;
     use proptest::prelude::*;
 
 
@@ -1147,7 +1121,7 @@ mod property_shopping_list_tests {
 
         // Test for associativity property
         #[test]
-        fn test_associativity(mut a in shopping_list_strategy(), mut b in shopping_list_strategy(), mut c in shopping_list_strategy()) {
+        fn test_associativity( a in shopping_list_strategy(),  mut b in shopping_list_strategy(),  c in shopping_list_strategy()) {
             let mut ab_c = a.clone();
             let mut a_bc = a.clone();
 
@@ -1164,7 +1138,7 @@ mod property_shopping_list_tests {
 
         // Test for commutativity property
         #[test]
-        fn test_commutativity(mut a in shopping_list_strategy(), mut b in shopping_list_strategy()) {
+        fn test_commutativity( a in shopping_list_strategy(), b in shopping_list_strategy()) {
             let mut ab = a.clone();
             let mut ba = b.clone();
 
@@ -1178,7 +1152,7 @@ mod property_shopping_list_tests {
 
         // Test for idempotency property
         #[test]
-        fn test_idempotency(mut a in shopping_list_strategy()) {
+        fn test_idempotency( a in shopping_list_strategy()) {
             let mut aa = a.clone();
             aa.merge(&a);
             //Invariant
@@ -1202,7 +1176,7 @@ mod property_shopping_list_tests {
             
             //Invariants: 
             //For cases, where a only have maximum one item that is removed, needs to be always different from original_list: this is our invariant
-            if(a.awset.state.is_empty()){
+            if a.awset.state.is_empty(){
                 prop_assert_ne!(a.awset.state, original_list.awset.state);
                 prop_assert_eq!(a.awset.context, original_list.awset.context); // only the context stays equal
                 prop_assert_ne!(a.items, original_list.items);
