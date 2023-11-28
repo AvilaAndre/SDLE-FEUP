@@ -111,7 +111,7 @@ pub mod crdt {
         pub fn merge(&self, other: &BoundedPNCounterv2) -> BoundedPNCounterv2 {
             let mut merged = BoundedPNCounterv2::new();
     
-            // Merge positive counts
+            
             let all_keys = self.positive_count.keys().chain(other.positive_count.keys()); // Here We need to get all possible keys in either counters
             for &node_id in all_keys {
                 let self_count = self.positive_count.get(&node_id).unwrap_or(&0);
@@ -119,7 +119,7 @@ pub mod crdt {
                 merged.positive_count.insert(node_id, std::cmp::max(*self_count, *other_count));
             }
 
-            // Merge negative counts
+            
             let all_keys = self.negative_count.keys().chain(other.negative_count.keys()); // same as above
             for &node_id in all_keys {
                 let self_count = self.negative_count.get(&node_id).unwrap_or(&0);
@@ -136,9 +136,9 @@ pub mod crdt {
     // // Arranjar estratégias de compressão para os states dos CRDTs !!! Passamos o estado, com o tempo isto vai acumular muita informação
 
 
-    // Formulation:
-    // List of (Items(Name,quanity: PN-Counter), (Nodeid/clientId, only grow counter)
-    //TODO: Use MAP, so we just update counters, we dont need to save every 3-tuple, 2-tuple
+    //AWSet optimizado: não acumula metadata no state indefinidademente, principalmentte após elementos serem removidos por alguém ( check fn add_i and rmv_i)
+    //      Guardamos o mais atual ( node_id, counter) tanto tem state como no context em vez de acumular todos (elem, node_id, counter) e (node_id, counter) 
+    
     #[derive(Clone, Debug)]
     pub struct AWSet {
         pub state: HashSet<(String, Uuid, u32)>, // Set of tuples (Item, NodeId, Counter)
@@ -146,7 +146,6 @@ pub mod crdt {
     }
     impl AWSet {
         pub fn new() -> Self {
-            //TODO: check if Hashset is the best struture to use, do we need to save every 3-tuple and 2-tuple on state and context, or just the more recent one
             AWSet{
                 state: HashSet::new(),
                 context: HashSet::new(), 
@@ -219,8 +218,10 @@ pub mod crdt {
         }
 
         pub fn merge(&mut self, inc_awset: &AWSet){
+
             //Intersection between states of two AWSets
             let states_intersection = self.state.intersection(&inc_awset.state).cloned().collect();
+
             // Union of filter(s,c') U f(s',c)
             let filter_state_1: HashSet<_> = self.filter(&inc_awset);
             let filter_state_2: HashSet<_> = inc_awset.filter(&self);
@@ -393,10 +394,10 @@ pub mod tests {
         let mut counter2 = BoundedPNCounterv2::new();
         let node_id = Uuid::new_v4();
 
-        counter1.increment(node_id, 3); // Decrease to 3, making it less than or equal to counter2
+        counter1.increment(node_id, 3); 
         counter2.increment(node_id, 5);
 
-        assert!(counter1.compare(&counter2)); // Now this should pass
+        assert!(counter1.compare(&counter2)); 
     }
     #[test]
     fn test_merge_same_keys() {
@@ -449,7 +450,7 @@ pub mod tests {
     }
 
     
-    // //Test AWSet
+    //Test AWSet
 
    
 
@@ -766,7 +767,7 @@ mod property_bounded_pn_counter_v2 {
         let mut operations = Vec::new();
         for &node_id in node_ids {
             let inc_or_dec = random::<bool>();
-            let amount = random::<u32>(); // Random amount between 0 and 99
+            let amount = random::<u32>(); 
             operations.push((node_id, inc_or_dec, amount));
         }
         operations
@@ -940,6 +941,7 @@ mod property_optimized_awset {
 
             b_clone.merge(&c);
             a_bc.merge(&b_clone);
+            //Invariant: state and context needs to be equal
             prop_assert_eq!(ab_c.state, a_bc.state);
             prop_assert_eq!(ab_c.context, a_bc.context);
             
@@ -958,7 +960,7 @@ mod property_optimized_awset {
 
             ab.merge(&b);
             ba.merge(&a);
-
+            //Invariant
             prop_assert_eq!(ab.state, ba.state);
             prop_assert_eq!(ab.context, ba.context);
         }
@@ -970,7 +972,7 @@ mod property_optimized_awset {
 
             let mut aa = a.clone();
             aa.merge(&a);
-
+            //Invariant
             prop_assert_eq!(a.state, aa.state);
             prop_assert_eq!(a.context, aa.context);
         }
@@ -1001,6 +1003,7 @@ mod property_optimized_awset {
             b_clone.merge(&c);
             a_bc.merge(&b_clone);
 
+            //Invariant
             prop_assert_eq!(ab_c.state, a_bc.state);
             prop_assert_eq!(ab_c.context, a_bc.context);
         }
@@ -1023,6 +1026,7 @@ mod property_optimized_awset {
             ab.merge(&b);
             ba.merge(&a);
 
+            //Invariant
             prop_assert_eq!(ab.state, ba.state);
             prop_assert_eq!(ab.context, ba.context);
         }
@@ -1040,11 +1044,12 @@ mod property_optimized_awset {
             let mut aa = a.clone();
             aa.merge(&a);
 
+            //Invariant
             prop_assert_eq!(a.state, aa.state);
             prop_assert_eq!(a.context, aa.context);
         }
 
-        // just random inputs to do property tests
+        
 
         #[test]
         fn test_associativity(a in awset_strategy(), b in awset_strategy(), c in awset_strategy()) {
@@ -1069,7 +1074,7 @@ mod property_optimized_awset {
     
             ab.merge(&b);
             ba.merge(&a);
-    
+            //Invariant
             prop_assert_eq!(ab.state, ba.state);
             prop_assert_eq!(ab.context, ba.context);
         }
@@ -1078,7 +1083,7 @@ mod property_optimized_awset {
         fn test_idempotence(a in awset_strategy()) {
             let mut aa = a.clone();
             aa.merge(&a);
-    
+            //Invariant
             prop_assert_eq!(a.state, aa.state);
             prop_assert_eq!(a.context, aa.context);
         }
@@ -1096,7 +1101,7 @@ mod property_optimized_awset {
     
             ab.merge(&bc);
             ac.merge(&bc);
-    
+            //Invariant
             prop_assert_eq!(ab.state, ac.state);
             prop_assert_eq!(ab.context, ac.context);
         }
@@ -1105,7 +1110,7 @@ mod property_optimized_awset {
         fn test_element_addition_removal(item in ".*", node_id in any::<[u8; 16]>().prop_map(Uuid::from_bytes)) {
             let mut awset = AWSet::new();
             awset.add_i(item.clone(), node_id);
-    
+            
             prop_assert!(awset.contains(&item));
             awset.rmv_i(item.clone());
             prop_assert!(!awset.contains(&item));
@@ -1151,7 +1156,7 @@ mod property_shopping_list_tests {
 
             b.merge(&c);
             a_bc.merge(&b);
-
+            //Invariant
             prop_assert_eq!(ab_c.awset.state, a_bc.awset.state);
             prop_assert_eq!(ab_c.awset.context, a_bc.awset.context);
             prop_assert_eq!(ab_c.items, a_bc.items);
@@ -1165,7 +1170,7 @@ mod property_shopping_list_tests {
 
             ab.merge(&b);
             ba.merge(&a);
-
+            //Invariant
             prop_assert_eq!(ab.awset.state, ba.awset.state);
             prop_assert_eq!(ab.awset.context, ba.awset.context);
             prop_assert_eq!(ab.items, ba.items);
@@ -1176,7 +1181,7 @@ mod property_shopping_list_tests {
         fn test_idempotency(mut a in shopping_list_strategy()) {
             let mut aa = a.clone();
             aa.merge(&a);
-
+            //Invariant
             prop_assert_eq!(a.awset.state, aa.awset.state);
             prop_assert_eq!(a.awset.context, aa.awset.context);
             prop_assert_eq!(a.items, aa.items);
@@ -1195,7 +1200,7 @@ mod property_shopping_list_tests {
             prop_assert!(!a.get_items().contains(&item1));
 
             
-
+            //Invariants: 
             //For cases, where a only have maximum one item that is removed, needs to be always different from original_list: this is our invariant
             if(a.awset.state.is_empty()){
                 prop_assert_ne!(a.awset.state, original_list.awset.state);
