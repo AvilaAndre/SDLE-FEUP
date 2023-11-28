@@ -1,0 +1,10 @@
+/home/wolfcuanhamarws/Desktop/Faculdade/2024/SDLE/Project/SDLE-FEUP/CRDT/crdt_cargo/target/debug/deps/unarray-e76ae3aae3bd6983.rmeta: /home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/lib.rs /home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/build.rs /home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/map.rs /home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/from_iter.rs
+
+/home/wolfcuanhamarws/Desktop/Faculdade/2024/SDLE/Project/SDLE-FEUP/CRDT/crdt_cargo/target/debug/deps/libunarray-e76ae3aae3bd6983.rlib: /home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/lib.rs /home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/build.rs /home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/map.rs /home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/from_iter.rs
+
+/home/wolfcuanhamarws/Desktop/Faculdade/2024/SDLE/Project/SDLE-FEUP/CRDT/crdt_cargo/target/debug/deps/unarray-e76ae3aae3bd6983.d: /home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/lib.rs /home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/build.rs /home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/map.rs /home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/from_iter.rs
+
+/home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/lib.rs:
+/home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/build.rs:
+/home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/map.rs:
+/home/wolfcuanhamarws/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unarray-0.1.4/src/from_iter.rs:
