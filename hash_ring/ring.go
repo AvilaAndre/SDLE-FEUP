@@ -39,7 +39,7 @@ func newNodeInfo(address string, port string, status NodeStatus) *NodeInfo {
 }
 
 type HashRing struct {
-	vnodes utils.AVLTree
+	vnodes *utils.AVLTree
 	nodes  map[string]*NodeInfo
 	lock   sync.Mutex
 }
@@ -48,6 +48,7 @@ type HashRing struct {
  * Initialize the Hash Ring
  */
 func (ring *HashRing) Initialize() {
+	ring.vnodes = &utils.AVLTree{}
 	ring.nodes = make(map[string]*NodeInfo)
 }
 
@@ -139,9 +140,12 @@ func (ring *HashRing) GetNodeForId(id string) *NodeInfo {
 
 	avl_node := ring.vnodes.Search(hash_key)
 
-	node_read := ring.nodes[avl_node.Value]
+	if avl_node == nil {
+		ring.lock.Unlock()
+		return nil
+	}
 
-	fmt.Printf(node_read.Id)
+	node_read := ring.nodes[avl_node.Value]
 
 	ring.lock.Unlock()
 

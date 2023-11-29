@@ -22,6 +22,10 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 
 		fmt.Println("get", target)
 
+		node_with_data := ring.GetNodeForId(target["list"])
+
+		log.Println("node_with_data", node_with_data)
+
 		log.Println(database.getValueRaw(target["list"]))
 
 	/**

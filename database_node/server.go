@@ -26,6 +26,10 @@ func startServerAndJoinCluster(serverPort string, loadBalancerAddress string, lo
 }
 
 func startServer(serverPort string, serverRunning chan bool) {
+
+	// The server should be added to its own node ring
+	ring.AddNode(serverHostname, serverPort)
+
 	go gossip()
 
 	err := http.ListenAndServe(fmt.Sprintf(":%s", serverPort), nil)

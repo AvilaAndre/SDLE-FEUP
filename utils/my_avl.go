@@ -1,6 +1,8 @@
 package utils
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // An AVL tree in golang was already implemented here (https://github.com/karask/go-avltree), however, I want to make some changes to it
 
@@ -27,6 +29,9 @@ func (t *AVLTree) Search(key string) (node *AVLNode) {
 	if searchResult != nil {
 		return searchResult
 	} else {
+		if t.root == nil {
+			return nil
+		}
 		return t.root.findSmallest()
 	}
 }
