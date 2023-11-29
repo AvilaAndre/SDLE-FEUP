@@ -14,9 +14,13 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		target := make(map[string]string)
 
-		if !protocol.DecodeRequestBody(w, r.Body, target) {
+		decoded, target := protocol.DecodeRequestBody(w, r.Body, target)
+
+		if !decoded {
 			return
 		}
+
+		fmt.Println("get", target)
 
 		log.Println(database.getValueRaw(target["list"]))
 
@@ -26,7 +30,9 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		target := make(map[string]string) // TODO: Replace string with the CRDT
 
-		if !protocol.DecodeRequestBody(w, r.Body, target) {
+		decoded, target := protocol.DecodeRequestBody(w, r.Body, target)
+
+		if !decoded {
 			return
 		}
 

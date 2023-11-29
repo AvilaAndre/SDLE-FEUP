@@ -6,12 +6,13 @@ import (
 	"net/http"
 	"time"
 
+	hash_ring "sdle.com/mod/hash_ring"
 	"sdle.com/mod/protocol"
 )
 
 func gossip() {
 	for {
-		for _, value := range ring.getNodes() {
+		for _, value := range ring.GetNodes() {
 			go gossipWith(value)
 		}
 
@@ -19,43 +20,43 @@ func gossip() {
 	}
 }
 
-func gossipWith(node *nodeInfo) {
-	if !node.gossipLock.TryLock() {
+func gossipWith(node *hash_ring.NodeInfo) {
+	if !node.GossipLock.TryLock() {
 		return
 	}
 
-	gossipMaterial := ring.nodesGossip()
+	gossipMaterial := ring.NodesGossip()
 
 	jsonData, err := json.Marshal(gossipMaterial)
 	if err != nil {
 		log.Printf("Error happened in JSON marshal. Err: %s", err)
-		node.gossipLock.Unlock()
+		node.GossipLock.Unlock()
 		return
 	}
 
-	response, err2 := protocol.SendRequestWithData(http.MethodPost, node.address, node.port, "/gossip", jsonData)
+	response, err2 := protocol.SendRequestWithData(http.MethodPost, node.Address, node.Port, "/gossip", jsonData)
 	if err2 != nil {
 		// If cannot gossip four consecutive times then assume the node is dead
-		if node.deadCounter < 3 {
-			node.deadCounter++
-		} else if node.deadCounter == 3 {
-			node.status = NODE_UNRESPONSIVE
-			log.Printf("%s set to UNRESPONSIVE\n", node.id)
-			node.deadCounter++
+		if node.DeadCounter < 3 {
+			node.DeadCounter++
+		} else if node.DeadCounter == 3 {
+			node.Status = hash_ring.NODE_UNRESPONSIVE
+			log.Printf("%s set to UNRESPONSIVE\n", node.Id)
+			node.DeadCounter++
 		}
 
-		node.gossipLock.Unlock()
+		node.GossipLock.Unlock()
 		return
 	}
 
-	node.gossipLock.Unlock()
+	node.GossipLock.Unlock()
 
 	// Await for response to get the node's status
 	if response.StatusCode == 200 {
-		node.deadCounter = 0
-		if node.status == NODE_UNRESPONSIVE {
-			node.status = NODE_OK
-			log.Printf("%s set to OK\n", node.id)
+		node.DeadCounter = 0
+		if node.Status == hash_ring.NODE_UNRESPONSIVE {
+			node.Status = hash_ring.NODE_OK
+			log.Printf("%s set to OK\n", node.Id)
 		}
 	}
 }

@@ -75,7 +75,7 @@ func joinCluster(loadBalancerAddress string, loadBalancerPort string, ownData ma
 				continue
 			}
 
-			ring.addNode(newNode["address"], newNode["port"])
+			ring.AddNode(newNode["address"], newNode["port"])
 		}
 	}
 }
