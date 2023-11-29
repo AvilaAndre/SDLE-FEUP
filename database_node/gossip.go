@@ -49,14 +49,14 @@ func gossipWith(node *hash_ring.NodeInfo) {
 		return
 	}
 
-	node.GossipLock.Unlock()
-
 	// Await for response to get the node's status
 	if response.StatusCode == 200 {
 		node.DeadCounter = 0
-		if node.Status == hash_ring.NODE_UNRESPONSIVE {
+		if node.Status != hash_ring.NODE_OK {
 			node.Status = hash_ring.NODE_OK
 			log.Printf("%s set to OK\n", node.Id)
 		}
 	}
+
+	node.GossipLock.Unlock()
 }

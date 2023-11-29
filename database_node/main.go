@@ -16,6 +16,8 @@ var ring hash_ring.HashRing
 
 var database DatabaseInstance
 
+const replicationFactor int = 5
+
 func main() {
 
 	var loadBalancerAddress string = ""

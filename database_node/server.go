@@ -28,7 +28,7 @@ func startServerAndJoinCluster(serverPort string, loadBalancerAddress string, lo
 func startServer(serverPort string, serverRunning chan bool) {
 
 	// The server should be added to its own node ring
-	ring.AddNode(serverHostname, serverPort)
+	ring.AddNode(serverHostname, serverPort, true)
 
 	go gossip()
 
@@ -79,7 +79,7 @@ func joinCluster(loadBalancerAddress string, loadBalancerPort string, ownData ma
 				continue
 			}
 
-			ring.AddNode(newNode["address"], newNode["port"])
+			ring.AddNode(newNode["address"], newNode["port"], false)
 		}
 	}
 }

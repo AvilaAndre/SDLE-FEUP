@@ -55,7 +55,17 @@ func (ring *HashRing) Initialize() {
 /**
  * Adds a node to the hash ring
  */
-func (ring *HashRing) AddNode(address string, port string) bool {
+func (ring *HashRing) AddNode(address string, port string, isServer bool) bool {
+	ring.lock.Lock()
+
+	result := ring.addNode(address, port, isServer)
+
+	ring.lock.Unlock()
+
+	return result
+}
+
+func (ring *HashRing) addNode(address string, port string, isServer bool) bool {
 	if address == "" || port == "" {
 		return false
 	}
@@ -63,11 +73,8 @@ func (ring *HashRing) AddNode(address string, port string) bool {
 	// A node's id is made of a string of the address and the port
 	var id string = fmt.Sprintf("%s:%s", address, port)
 
-	ring.lock.Lock()
-
 	// Checking if the node is already in the ring
 	if ring.nodes[id] != nil {
-		ring.lock.Unlock()
 		return false
 	}
 
@@ -80,9 +87,11 @@ func (ring *HashRing) AddNode(address string, port string) bool {
 	}
 
 	// Add the nodeInfo to the ring
-	ring.nodes[id] = newNodeInfo(address, port, NODE_UNKNOWN)
-
-	ring.lock.Unlock()
+	if isServer {
+		ring.nodes[id] = newNodeInfo(address, port, NODE_OK)
+	} else {
+		ring.nodes[id] = newNodeInfo(address, port, NODE_UNKNOWN)
+	}
 
 	return true
 }
@@ -124,7 +133,7 @@ func (ring *HashRing) CheckForNewNodes(nodes []map[string]string, ownHostname st
 		if ring.nodes[nodeId] == nil {
 			fmt.Printf("FOUND AN UNKNOWN NODE %s:%s \n", node["address"], node["port"])
 
-			ring.nodes[nodeId] = newNodeInfo(node["address"], node["port"], NODE_UNRESPONSIVE)
+			ring.addNode(node["address"], node["port"], false)
 		}
 
 		// FIXME: Do I do something with the status?
@@ -133,7 +142,7 @@ func (ring *HashRing) CheckForNewNodes(nodes []map[string]string, ownHostname st
 	ring.lock.Unlock()
 }
 
-func (ring *HashRing) GetNodeForId(id string) *NodeInfo {
+func (ring *HashRing) GetNodeForIdFromRing(id string) *NodeInfo {
 	ring.lock.Lock()
 
 	var hash_key string = hashId(id)
@@ -150,6 +159,57 @@ func (ring *HashRing) GetNodeForId(id string) *NodeInfo {
 	ring.lock.Unlock()
 
 	return node_read
+}
+
+/**
+* Gets the N healthy node in the hash ring after a certain ID
+ */
+func (ring *HashRing) GetNHealthyNodesForID(id string, n int) []*NodeInfo {
+	ring.lock.Lock()
+
+	result := ring.getNHealthyNodesForID(id, n)
+
+	ring.lock.Unlock()
+
+	return result
+}
+
+func (ring *HashRing) getNHealthyNodesForID(id string, n int) []*NodeInfo {
+
+	var hash_key string = hashId(id)
+
+	if ring.vnodes.Size() < n {
+		n = ring.vnodes.Size()
+	}
+
+	nodes := make([]*NodeInfo, 0)
+
+	if n < 1 {
+		return nodes
+	}
+
+	avlNode := ring.vnodes.Search(hash_key)
+
+	if ring.nodes[avlNode.Value].Status == NODE_OK {
+		nodes = append(nodes, ring.nodes[avlNode.Value])
+	}
+
+	// Get the current key so we can find the next
+	hash_key = avlNode.GetKey()
+
+	for i := 0; i < n-1; i++ {
+		avlNode := ring.vnodes.Next(hash_key)
+		if ring.nodes[avlNode.Value].Status == NODE_OK {
+			nodes = append(nodes, ring.nodes[avlNode.Value])
+		}
+
+		// Get the current key so we can find the next
+		hash_key = avlNode.GetKey()
+	}
+
+	// fmt.Println(nodes, ring.nodes)
+
+	return nodes
 }
 
 func hashId(id string) string {

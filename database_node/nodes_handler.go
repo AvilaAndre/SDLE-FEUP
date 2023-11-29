@@ -36,8 +36,10 @@ func nodeAdd(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			var isServer bool = target["address"] == serverHostname && target["port"] == serverPort
+
 			// Adds the new node to the cluster
-			ring.AddNode(target["address"], target["port"])
+			ring.AddNode(target["address"], target["port"], isServer)
 
 			nodesOnTheRing := ring.GetNodes()
 
