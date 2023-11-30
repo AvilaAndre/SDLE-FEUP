@@ -40,24 +40,24 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 		var readChanExpected int = 0
 
 		for i := 0; i < numberOfNodesToRead; i++ {
-			if healthyNodes[i].Address == serverHostname && healthyNodes[i].Port == serverPort {
-				value := string(database.getValueRaw(target["list_id"]))
-				if value != "" {
-					valuesRead = append(valuesRead, value)
-				}
-				continue
-			}
+			// if healthyNodes[i].Address == serverHostname && healthyNodes[i].Port == serverPort {
+			// 	value := string(database.getValueRaw(target["list_id"]))
+			// 	if value != "" {
+			// 		valuesRead = append(valuesRead, value)
+			// 	}
+			// 	continue
+			// }
 
-			node := healthyNodes[i]
+			// node := healthyNodes[i]
 
-			jsonData, err := json.Marshal(map[string]string{"list_id": target["list_id"]})
-			if err != nil {
-				log.Printf("Error happened in JSON marshal. Err: %s", err)
-				readChan <- ""
-			}
+			// jsonData, err := json.Marshal(map[string]string{"list_id": target["list_id"]})
+			// if err != nil {
+			// 	log.Printf("Error happened in JSON marshal. Err: %s", err)
+			// 	readChan <- ""
+			// }
 
-			go sendReadAndWait(node.Address, node.Port, jsonData, readChan)
-			readChanExpected += 1
+			// go sendReadAndWait(node.Address, node.Port, jsonData, readChan)
+			// readChanExpected += 1
 		}
 
 		for i := 0; i < readChanExpected; i++ {
@@ -98,27 +98,37 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 		// The coordenator, upon receiving a write, writes locally and performs a quorum
 		// however, this coordenator may not be a holder of this information, in this case
 		// it only performs the quorum
-
-		// FIXME: Can have multiple replicas in the same node
+		nodes := ring.GetNodes()
 		healthyNodes := ring.GetNHealthyNodesForID(target["list_id"], replicationFactor) // TODO: This does not have hinted handoff into consideration
 
+		fmt.Println("ReplicationFactor", ring.ReplicationFactor)
 		// Send write to nodes TODO: send for a random combination of nodes to make a quorum
-		for i := 0; i < len(healthyNodes); i++ {
-			if healthyNodes[i].Address == serverHostname && healthyNodes[i].Port == serverPort {
+		for i := 0; i < ring.ReplicationFactor; i++ {
+			virtualNodeID := healthyNodes[i]
+
+			physicalNode := nodes[ring.ParseVirtualNodeID(virtualNodeID)[0]]
+
+			if physicalNode.Address == serverHostname && physicalNode.Port == serverPort {
 				database.writeToKey(target["list_id"], []byte(target["list"]))
 				continue
 			}
 
-			jsonData, err := json.Marshal(target)
+			payload := map[string]string{
+				"list_id": target["list_id"],
+				"content": target["content"],
+				"node":    virtualNodeID,
+			}
+
+			jsonData, err := json.Marshal(payload)
 			if err != nil {
 				log.Printf("Error happened in JSON marshal. Err: %s", err)
 				continue
 			}
 
-			node := healthyNodes[i]
-
 			// FIXME: Should I wait for the response? Maybe get another node if this one fails
-			protocol.SendRequestWithData(http.MethodPut, node.Address, node.Port, "/operation", jsonData)
+			protocol.SendRequestWithData(http.MethodPut, physicalNode.Address, physicalNode.Port, "/operation", jsonData)
+
+			fmt.Println("send", payload)
 		}
 
 	}

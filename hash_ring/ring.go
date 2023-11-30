@@ -3,6 +3,7 @@ package hash_ring
 import (
 	"crypto/md5"
 	"fmt"
+	"strings"
 	"sync"
 
 	"sdle.com/mod/utils"
@@ -41,9 +42,10 @@ func newNodeInfo(address string, port string, status NodeStatus) *NodeInfo {
 }
 
 type HashRing struct {
-	vnodes *utils.AVLTree
-	nodes  map[string]*NodeInfo
-	lock   sync.Mutex
+	vnodes            *utils.AVLTree
+	nodes             map[string]*NodeInfo
+	ReplicationFactor int
+	lock              sync.Mutex
 }
 
 /**
@@ -52,6 +54,7 @@ type HashRing struct {
 func (ring *HashRing) Initialize() {
 	ring.vnodes = &utils.AVLTree{}
 	ring.nodes = make(map[string]*NodeInfo)
+	ring.ReplicationFactor = 1
 }
 
 /**
@@ -98,7 +101,7 @@ func (ring *HashRing) addVirtualNode(node_id string, vnode_number int) {
 
 	var vnode_hash string = hashId(vnode_id)
 
-	ring.vnodes.Add(vnode_hash, node_id) // the Virtual Node's hash is the key, it then points to the node
+	ring.vnodes.Add(vnode_hash, vnode_id) // the Virtual Node's hash is the key, it then points to the node
 
 	// Add vnode_id to the vnodes list
 	ring.nodes[node_id].vnodes = append(ring.nodes[node_id].vnodes, vnode_id)
@@ -128,6 +131,8 @@ func (ring *HashRing) updateRing() {
 	if max_vnodes == 0 {
 		max_vnodes = 1
 	}
+
+	ring.ReplicationFactor = max_vnodes
 
 	// check for every node if it has the correct ammount of vnodes
 
@@ -214,7 +219,7 @@ func (ring *HashRing) GetNodeForIdFromRing(id string) *NodeInfo {
 /**
 * Gets the N healthy node in the hash ring after a certain ID
  */
-func (ring *HashRing) GetNHealthyNodesForID(id string, n int) []*NodeInfo {
+func (ring *HashRing) GetNHealthyNodesForID(id string, n int) []string {
 	ring.lock.Lock()
 
 	result := ring.getNHealthyNodesForID(id, n)
@@ -224,15 +229,15 @@ func (ring *HashRing) GetNHealthyNodesForID(id string, n int) []*NodeInfo {
 	return result
 }
 
-func (ring *HashRing) getNHealthyNodesForID(id string, n int) []*NodeInfo {
-
+// Calculates the n nodes after an id and returns them
+func (ring *HashRing) getNHealthyNodesForID(id string, n int) []string {
 	var hash_key string = hashId(id)
 
 	if ring.vnodes.Size() < n {
 		n = ring.vnodes.Size()
 	}
 
-	nodes := make([]*NodeInfo, 0)
+	nodes := make([]string, 0)
 
 	if n < 1 {
 		return nodes
@@ -240,8 +245,11 @@ func (ring *HashRing) getNHealthyNodesForID(id string, n int) []*NodeInfo {
 
 	avlNode := ring.vnodes.Search(hash_key)
 
-	if ring.nodes[avlNode.Value].Status == NODE_OK {
-		nodes = append(nodes, ring.nodes[avlNode.Value])
+	// parse virtual node name <node_name>_vnode<id>
+	parsedServerName := ring.ParseVirtualNodeID(avlNode.Value)
+
+	if ring.nodes[parsedServerName[0]].Status == NODE_OK {
+		nodes = append(nodes, avlNode.Value)
 	}
 
 	// Get the current key so we can find the next
@@ -249,19 +257,26 @@ func (ring *HashRing) getNHealthyNodesForID(id string, n int) []*NodeInfo {
 
 	for i := 0; i < n-1; i++ {
 		avlNode := ring.vnodes.Next(hash_key)
-		if ring.nodes[avlNode.Value].Status == NODE_OK {
-			nodes = append(nodes, ring.nodes[avlNode.Value])
+
+		parsedServerName := ring.ParseVirtualNodeID(avlNode.Value)
+
+		if ring.nodes[parsedServerName[0]].Status == NODE_OK {
+			nodes = append(nodes, avlNode.Value)
 		}
 
 		// Get the current key so we can find the next
 		hash_key = avlNode.GetKey()
 	}
 
-	// fmt.Println(nodes, ring.nodes)
-
 	return nodes
 }
 
 func hashId(id string) string {
 	return fmt.Sprintf("%x", md5.Sum([]byte(id)))
+}
+
+func (ring *HashRing) ParseVirtualNodeID(virtualNodeID string) []string {
+	return strings.FieldsFunc(virtualNodeID, func(r rune) bool {
+		return r == '_'
+	})
 }
