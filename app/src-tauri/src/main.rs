@@ -2,12 +2,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use rusqlite::{Result};
-
+use uuid::Uuid;
 mod database;
 mod controller;
 mod state;
 pub mod model;
 pub mod macros;
+pub mod crdt;
+
 
 use state::{AppState, ServiceAccess};
 use tauri::{State, Manager, AppHandle};
@@ -36,10 +38,10 @@ fn main(){
 fn my_custom_command() {
     println!("I was invoked from JS!");
 }
-
+//node_id deve ser exterior a qualquer lista e o mesmo utilizado em todas as listas criadas no presente e futuro
 #[tauri::command]
 fn create_list(app_handle: AppHandle) -> Result<String, String> {
-    match app_handle.db(|db| controller::create_list("New List", db)) {
+    match app_handle.db(|db| controller::create_list("New List", Uuid::new_v4() ,db)) {//TODO: create client info to save client name, node_id: Uuid on local database persistent information !!!
         Err(e) => {
             println!("error creating new list: {e:?}");
             return Err(e.to_string());

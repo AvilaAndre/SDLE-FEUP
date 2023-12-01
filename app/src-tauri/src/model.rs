@@ -1,23 +1,23 @@
 use crate::unwrap_or_return_with;
-
+use crate::crdt::crdt::crdt::{ShoppingList};
+use std::collections::HashMap;
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct ListInfo {
     pub list_id: String,
     pub title: String,
     pub shared: bool,
+   
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-pub struct ListItemInfo {
-    pub id: i32,
-    pub name: String,
-    pub qtd: i32,
-}
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct ShoppingListData {
     pub list_info: ListInfo,
-    pub items: Vec<ListItemInfo>,
+    //TODO: 
+    //for items a user have marked as complete and or quantity goes from positive number to 0 but other users can continue add quantities to the item
+    // Quantities will continue to be incremented/decremented, but if marked complete, for that user the frontend display complete with the new quantities from other users: a risk on the item name-quantity or just a marked checkbox
+    pub items_checked: HashMap<String, bool>, // item name -> checked or not checked
+    pub crdt : ShoppingList
 }
 
 pub trait Serialize {
