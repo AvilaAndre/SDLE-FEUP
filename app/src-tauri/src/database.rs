@@ -57,7 +57,7 @@ impl Operation for UnQLite {
         return Ok(true);
     }
 
-    fn get_list(&self, id: String) -> Result<ShoppingListData, &'static str> {
+    fn get_list(&self, id: String) -> Result<ShoppingListData, &'static str> { //Adapt for the new type of id for the lists
         let result: Vec<u8> = unwrap_or_return_with!(
             self.kv_fetch(id),
             Err("Failed to find list with the given id")

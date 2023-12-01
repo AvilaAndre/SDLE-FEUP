@@ -16,7 +16,7 @@ pub struct ShoppingListData {
     //TODO: 
     //for items a user have marked as complete and or quantity goes from positive number to 0 but other users can continue add quantities to the item
     // Quantities will continue to be incremented/decremented, but if marked complete, for that user the frontend display complete with the new quantities from other users: a risk on the item name-quantity or just a marked checkbox
-    pub items_checked: HashMap<String, bool>, // item name -> checked or not checked
+    pub items_checked: HashMap<String, bool>, // item name -> checked or not checked( True or False) -> check controller for details
     pub crdt : ShoppingList
 }
 

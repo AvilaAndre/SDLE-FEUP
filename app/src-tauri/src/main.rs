@@ -39,6 +39,7 @@ fn my_custom_command() {
     println!("I was invoked from JS!");
 }
 //node_id deve ser exterior a qualquer lista e o mesmo utilizado em todas as listas criadas no presente e futuro
+//TODO: change to receive node_id, list_name/title, generate list_unique_id: ( node_id, only-grow-counter)
 #[tauri::command]
 fn create_list(app_handle: AppHandle) -> Result<String, String> {
     match app_handle.db(|db| controller::create_list("New List", Uuid::new_v4() ,db)) {//TODO: create client info to save client name, node_id: Uuid on local database persistent information !!!
