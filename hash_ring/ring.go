@@ -219,10 +219,10 @@ func (ring *HashRing) GetNodeForIdFromRing(id string) *NodeInfo {
 /**
 * Gets the N healthy node in the hash ring after a certain ID
  */
-func (ring *HashRing) GetNHealthyNodesForID(id string, n int) []string {
+func (ring *HashRing) GetHealthyNodesForID(id string) []*NodeInfo {
 	ring.lock.Lock()
 
-	result := ring.getNHealthyNodesForID(id, n)
+	result := ring.getHealthyNodesForID(id)
 
 	ring.lock.Unlock()
 
@@ -230,42 +230,67 @@ func (ring *HashRing) GetNHealthyNodesForID(id string, n int) []string {
 }
 
 // Calculates the n nodes after an id and returns them
-func (ring *HashRing) getNHealthyNodesForID(id string, n int) []string {
-	var hash_key string = hashId(id)
+func (ring *HashRing) getHealthyNodesForID(id string) []*NodeInfo {
+	nodes := make([]*NodeInfo, 0)
 
-	if ring.vnodes.Size() < n {
-		n = ring.vnodes.Size()
-	}
-
-	nodes := make([]string, 0)
-
-	if n < 1 {
+	if ring.vnodes.Size() < 1 {
 		return nodes
 	}
 
+	var hash_key string = hashId(id)
+
+	nodesChecked := make([]string, 0)
+
 	avlNode := ring.vnodes.Search(hash_key)
 
-	// parse virtual node name <node_name>_vnode<id>
-	parsedServerName := ring.ParseVirtualNodeID(avlNode.Value)
+	var firstVNodeId string = avlNode.Value
 
-	if ring.nodes[parsedServerName[0]].Status == NODE_OK {
-		nodes = append(nodes, avlNode.Value)
+	// parse virtual node name <node_name>_vnode<id>
+	parsedServerName := ring.ParseVirtualNodeID(avlNode.Value)[0]
+
+	if ring.nodes[parsedServerName].Status == NODE_OK {
+		nodes = append(nodes, ring.nodes[parsedServerName])
+		nodesChecked = append(nodesChecked, parsedServerName)
 	}
 
 	// Get the current key so we can find the next
 	hash_key = avlNode.GetKey()
 
-	for i := 0; i < n-1; i++ {
+	for {
 		avlNode := ring.vnodes.Next(hash_key)
-
-		parsedServerName := ring.ParseVirtualNodeID(avlNode.Value)
-
-		if ring.nodes[parsedServerName[0]].Status == NODE_OK {
-			nodes = append(nodes, avlNode.Value)
-		}
-
 		// Get the current key so we can find the next
 		hash_key = avlNode.GetKey()
+
+		// If the node is the first then it is looping
+		if avlNode.Value == firstVNodeId {
+			break
+		}
+
+		parsedServerName := ring.ParseVirtualNodeID(avlNode.Value)[0]
+
+		// Check if this node has already been found in the ring
+		var isRepeated bool = false
+		for i := 0; i < len(nodesChecked); i++ {
+			if nodesChecked[i] == parsedServerName {
+				isRepeated = true
+				break
+			}
+		}
+
+		if isRepeated {
+			continue
+		} else {
+			nodesChecked = append(nodesChecked, parsedServerName)
+		}
+
+		if ring.nodes[parsedServerName].Status == NODE_OK {
+			nodes = append(nodes, ring.nodes[parsedServerName])
+		}
+
+		// if the all nodes have been found in the ring, break
+		if len(nodesChecked) == len(ring.nodes) {
+			break
+		}
 	}
 
 	return nodes

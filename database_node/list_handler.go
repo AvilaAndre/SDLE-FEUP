@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 
+	"sdle.com/mod/hash_ring"
 	"sdle.com/mod/protocol"
+	"sdle.com/mod/utils"
 )
 
 func handleCoordenator(w http.ResponseWriter, r *http.Request) {
@@ -28,7 +31,7 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 		// it only performs the read quorum
 
 		// FIXME: Can have multiple replicas in the same node
-		healthyNodes := ring.GetNHealthyNodesForID(target["list_id"], replicationFactor) // TODO: This does not have hinted handoff into consideration
+		healthyNodes := ring.GetHealthyNodesForID(target["list_id"]) // TODO: This does not have hinted handoff into consideration
 
 		// Send read to nodes TODO: send for a random combination of nodes to make a quorum
 
@@ -93,44 +96,81 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Println("COORDINATOR write", target)
-
 		// The coordenator, upon receiving a write, writes locally and performs a quorum
 		// however, this coordenator may not be a holder of this information, in this case
 		// it only performs the quorum
-		nodes := ring.GetNodes()
-		healthyNodes := ring.GetNHealthyNodesForID(target["list_id"], replicationFactor) // TODO: This does not have hinted handoff into consideration
+		healthyNodes := ring.GetHealthyNodesForID(target["list_id"])
 
-		fmt.Println("ReplicationFactor", ring.ReplicationFactor)
-		// Send write to nodes TODO: send for a random combination of nodes to make a quorum
-		for i := 0; i < ring.ReplicationFactor; i++ {
-			virtualNodeID := healthyNodes[i]
+		var healthyNodesStack utils.Stack[*hash_ring.NodeInfo]
 
-			physicalNode := nodes[ring.ParseVirtualNodeID(virtualNodeID)[0]]
+		// Scrambles N first healthy replicas so a quorum can be performed for this key
+		rand.Shuffle(min(len(healthyNodes), replicationFactor), func(i, j int) { healthyNodes[i], healthyNodes[j] = healthyNodes[j], healthyNodes[i] })
 
-			if physicalNode.Address == serverHostname && physicalNode.Port == serverPort {
-				database.writeToKey(target["list_id"], []byte(target["list"]))
-				continue
+		for i := 0; i < len(healthyNodes); i++ {
+			healthyNodesStack.Push(healthyNodes[i])
+		}
+
+		// Information about the success of the writes
+		writeChan := make(chan bool)
+
+		var waitForWrite int = 0
+		var wroteSuccessfully int = 0
+
+		// Send write to nodes
+		quorumNodesNumber := min(ring.ReplicationFactor/2+1, len(healthyNodes))
+
+		for i := 0; i < quorumNodesNumber; i++ {
+			// If there aren't enough healthy nodes
+			if healthyNodesStack.Size() == 0 {
+				break
 			}
+
+			physicalNode := healthyNodesStack.Pop()
 
 			payload := map[string]string{
 				"list_id": target["list_id"],
 				"content": target["content"],
-				"node":    virtualNodeID,
 			}
 
-			jsonData, err := json.Marshal(payload)
-			if err != nil {
-				log.Printf("Error happened in JSON marshal. Err: %s", err)
-				continue
-			}
-
-			// FIXME: Should I wait for the response? Maybe get another node if this one fails
-			protocol.SendRequestWithData(http.MethodPut, physicalNode.Address, physicalNode.Port, "/operation", jsonData)
-
-			fmt.Println("send", payload)
+			go sendWriteAndWait(physicalNode.Address, physicalNode.Port, payload, writeChan)
+			waitForWrite += 1
 		}
 
+		// TODO: TIMEOUT
+		for {
+			if waitForWrite < 1 {
+				break
+			}
+			result := <-writeChan
+
+			if result {
+				wroteSuccessfully++
+				waitForWrite--
+			} else {
+				// if still has replicas
+				if healthyNodesStack.Size() > 0 {
+					physicalNode := healthyNodesStack.Pop()
+
+					payload := map[string]string{
+						"list_id": target["list_id"],
+						"content": target["content"],
+					}
+
+					go sendWriteAndWait(physicalNode.Address, physicalNode.Port, payload, writeChan)
+				} else {
+					// Cannot write anymore so we do not wait
+					waitForWrite--
+				}
+			}
+		}
+
+		if wroteSuccessfully > 0 {
+			w.WriteHeader(http.StatusOK)
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}
+
+		return
 	}
 }
 
@@ -197,4 +237,34 @@ func sendReadAndWait(address string, port string, jsonData []byte, readChan chan
 	}
 
 	readChan <- target["list"]
+}
+
+// Returns true if successful, false if not
+func sendWriteAndWait(address string, port string, payload map[string]string, writeChan chan bool) {
+	if address == serverHostname && port == serverPort {
+		database.writeToKey(payload["list_id"], []byte(payload["content"]))
+
+		writeChan <- true
+		return
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		log.Panicf("Error happened in JSON marshal. Err: %s \n", err)
+		writeChan <- false
+		return
+	}
+
+	response, err := protocol.SendRequestWithData(http.MethodPut, address, port, "/operation", jsonData)
+	if err != nil {
+		writeChan <- false
+		return
+	}
+
+	// Successful if write suceeds
+	if response.StatusCode == 200 {
+		writeChan <- true
+	} else {
+		writeChan <- false
+	}
 }
