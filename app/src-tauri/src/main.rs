@@ -138,4 +138,5 @@ fn update_list_title(app_handle: AppHandle, listId: String, title: &str) -> bool
     }
 }
 
+
 //TODO: do the function for item check using the controller
