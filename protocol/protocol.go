@@ -9,6 +9,28 @@ import (
 	"time"
 )
 
+type WriteOperation struct {
+	ListId  string
+	Content string // TODO: Replace with CRDT
+}
+
+func WriteOperationToMap(op WriteOperation) map[string]string {
+	var opMap map[string]string = make(map[string]string)
+	opMap["list_id"] = op.ListId
+	opMap["content"] = op.Content
+	return opMap
+}
+
+type ReadOperation struct {
+	ListId string
+}
+
+func ReadOperationToMap(op ReadOperation) map[string]string {
+	var opMap map[string]string = make(map[string]string)
+	opMap["list_id"] = op.ListId
+	return opMap
+}
+
 func SendGetRequest(address string, port string, path string) (*http.Response, error) {
 	requestURL := fmt.Sprintf("http://%s:%s%s", address, port, path)
 	client := http.Client{

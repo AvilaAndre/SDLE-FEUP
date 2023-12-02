@@ -1,6 +1,8 @@
 package main
 
-import "sync"
+import (
+	"sync"
+)
 
 /**
 * Until unqlite is implemented, this will only be for debugging purposes
