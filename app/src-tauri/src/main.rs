@@ -59,12 +59,12 @@ fn create_list(app_handle: AppHandle) -> Result<String, String> {
 #[tauri::command]
 fn create_user(app_handle: AppHandle) -> Result<String, String> {
     //TODO: Change this to receive the inf for parameters from the frontend
-    match app_handle.db(|db| controller::create_user("Client", 18, "something@gmail.com")) {
+    match app_handle.db(|db| controller::create_user("Client", 18, "something@gmail.com",db)) {
         Err(e) => {
             println!("error creating new list: {e:?}");
             return Err(e.to_string());
         }
-        Ok(node_id) => return Ok(node_id)
+        Ok(id) => return Ok(id)
     }
 }
 
@@ -80,7 +80,7 @@ fn get_user(app_handle: AppHandle, node_id: String) -> Result<User, String> {
 }
 
 #[tauri::command]
-fn update_user_info(app_handle: AppHandle, node_id: String, name: &str, age: &str, email: &str) -> bool {
+fn update_user_info(app_handle: AppHandle, node_id: String, name: &str, age: u32, email: &str) -> bool {
     match app_handle.db(|db| controller::update_user_info(node_id,name, age, email, db)) {
         Err(e) => {
             println!("error updating client {e:?}");
@@ -137,3 +137,5 @@ fn update_list_title(app_handle: AppHandle, listId: String, title: &str) -> bool
         Ok(success) => return success,
     }
 }
+
+//TODO: do the function for item check using the controller

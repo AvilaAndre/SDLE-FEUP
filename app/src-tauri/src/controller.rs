@@ -12,9 +12,9 @@ use unqlite::UnQLite;
 /**
  * Creates a new user that will use the local app
  */
-pub fn create_user(name: &str, age: u32, email: &str, db: &UnQLite){
+pub fn create_user(name: &str, age: u32, email: &str, db: &UnQLite) -> Result<String, &'static str>{
     let id = Uuid::new_v4().to_string();
-    let new_user: User = User{
+    let new_user: User = User {
         node_id: id.clone(),
         name: name.to_string(),
         age: age,
@@ -28,8 +28,8 @@ pub fn create_user(name: &str, age: u32, email: &str, db: &UnQLite){
     
 }
 
-pub fn update_user_info(node_id: Uuid, name: String, age: u32, email: String ,db: &UnQLite) -> Result<bool, &'static str> {
-    let mut user:User = unwrap_or_return!(db.get_list(node_id.clone()));
+pub fn update_user_info(node_id: String, name: &str, age: u32, email: &str ,db: &UnQLite) -> Result<bool, &'static str> {
+    let mut user:User = unwrap_or_return!(db.get_user(node_id.clone()));
 
     user.name = name.to_string();
     user.age = age;

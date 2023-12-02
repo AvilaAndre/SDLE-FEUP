@@ -33,14 +33,18 @@ pub struct ShoppingListData {
 }
 
 pub trait Serialize {
+    type Output;
     fn serialize_to_string(&self) -> Result<String, &'static str>;
 
-    fn deserialize_from_slice(value: Vec<u8>) -> Result<ShoppingListData, &'static str>;//TODO_ implement for User and ShoppingList
+    fn deserialize_from_slice(value: Vec<u8>) -> Result<Self::Output, &'static str>;//TODO_ implement for User and ShoppingList
+    
     
     
 }
 
 impl Serialize for ShoppingListData {
+    type Output = ShoppingListData;
+
     fn serialize_to_string(&self) -> Result<String, &'static str> {
         return match serde_json::to_string(self) {
             Ok(value) => Ok(value),
@@ -48,15 +52,17 @@ impl Serialize for ShoppingListData {
         };
     }
 
-    fn deserialize_from_slice(value: Vec<u8>) -> Result<ShoppingListData, &'static str> {
+    fn deserialize_from_slice(value: Vec<u8>) -> Result<Self::Output, &'static str> {
         return Ok(unwrap_or_return_with!(
-            serde_json::from_slice::<ShoppingListData>(&value),
+            serde_json::from_slice::<Self::Output>(&value),
             Err("Failed to deserialize")
         ));
     }
 }
 
 impl Serialize for User {
+
+    type Output = User;
     fn serialize_to_string(&self) -> Result<String, &'static str> {
         return match serde_json::to_string(self){
             Ok(value) => Ok(value),
@@ -66,9 +72,9 @@ impl Serialize for User {
 
     }
 
-    fn deserialize_from_slice(value: Vec<u8>) -> Result<User, &'static str> {
+    fn deserialize_from_slice(value: Vec<u8>) -> Result<Self::Output, &'static str> {
         return Ok(unwrap_or_return_with!(
-            serde_json::from_slice::<User>(&value),
+            serde_json::from_slice::<Self::Output>(&value),
             Err("Failed to deserialize")
         ));
     }
