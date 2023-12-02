@@ -30,20 +30,24 @@ func nodeAdd(w http.ResponseWriter, r *http.Request) {
 		{
 			target := make(map[string]string)
 
-			if !protocol.DecodeRequestBody(w, r.Body, target) {
+			decoded, target := protocol.DecodeRequestBody(w, r.Body, target)
+
+			if !decoded {
 				return
 			}
 
-			// Adds the new node to the cluster
-			ring.addNode(target["address"], target["port"])
+			var isServer bool = target["address"] == serverHostname && target["port"] == serverPort
 
-			nodesOnTheRing := ring.getNodes()
+			// Adds the new node to the cluster
+			ring.AddNode(target["address"], target["port"], isServer)
+
+			nodesOnTheRing := ring.GetNodes()
 
 			nodesData := make(map[string][]map[string]string)
 			nodesData["nodes"] = make([]map[string]string, len(nodesOnTheRing))
 
-			for _, value := range ring.getNodes() {
-				nodesData["nodes"] = append(nodesData["nodes"], map[string]string{"address": value.address, "port": value.port})
+			for _, value := range ring.GetNodes() {
+				nodesData["nodes"] = append(nodesData["nodes"], map[string]string{"address": value.Address, "port": value.Port})
 			}
 
 			jsonData, err := json.Marshal(nodesData)
@@ -72,11 +76,13 @@ func handleGossip(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		target := make(map[string][]map[string]string)
 
-		if !protocol.DecodeRequestBody(w, r.Body, target) {
+		decoded, target := protocol.DecodeRequestBody(w, r.Body, target)
+
+		if !decoded {
 			return
 		}
 
-		ring.checkForNewNodes(target["nodes"])
+		ring.CheckForNewNodes(target["nodes"], serverHostname, serverPort)
 
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("This node is operating normally"))

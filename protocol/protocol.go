@@ -68,13 +68,13 @@ func WrongRequestType(w http.ResponseWriter) {
 /**
 * Returns false if it fails to decode the body into the requested data format
  */
-func DecodeRequestBody(w http.ResponseWriter, body io.ReadCloser, data any) bool {
+func DecodeRequestBody[T any](w http.ResponseWriter, body io.ReadCloser, data T) (bool, T) {
 	err := json.NewDecoder(body).Decode(&data)
 
 	if err != nil {
 		FailedToDecodeJSON(w)
-		return false
+		return false, data
 	} else {
-		return true
+		return true, data
 	}
 }

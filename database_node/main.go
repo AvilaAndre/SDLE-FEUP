@@ -5,15 +5,18 @@ import (
 	"log"
 	"os"
 
+	hash_ring "sdle.com/mod/hash_ring"
 	"sdle.com/mod/utils"
 )
 
 var serverPort string = ""
 var serverHostname string = ""
 
-var ring HashRing
+var ring hash_ring.HashRing
 
 var database DatabaseInstance
+
+const replicationFactor int = 5
 
 func main() {
 
@@ -39,7 +42,7 @@ func main() {
 	registerRoutes()
 	log.Printf("Node starting... %s:%s", serverHostname, serverPort)
 
-	ring.initialize()
+	ring.Initialize()
 	database.initialize()
 
 	if loadBalancerAddress != "" && loadBalancerPort != "" {

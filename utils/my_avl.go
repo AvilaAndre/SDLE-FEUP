@@ -1,6 +1,8 @@
 package utils
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // An AVL tree in golang was already implemented here (https://github.com/karask/go-avltree), however, I want to make some changes to it
 
@@ -27,6 +29,9 @@ func (t *AVLTree) Search(key string) (node *AVLNode) {
 	if searchResult != nil {
 		return searchResult
 	} else {
+		if t.root == nil {
+			return nil
+		}
 		return t.root.findSmallest()
 	}
 }
@@ -45,6 +50,10 @@ func (t *AVLTree) DisplayInOrder() {
 	fmt.Println()
 }
 
+func (t *AVLTree) Size() int {
+	return t.root.size()
+}
+
 // AVLNode structure
 type AVLNode struct {
 	key   string
@@ -54,6 +63,11 @@ type AVLNode struct {
 	height int
 	left   *AVLNode
 	right  *AVLNode
+}
+
+// Gets the key
+func (n *AVLNode) GetKey() string {
+	return n.key
 }
 
 // Adds a new node
@@ -152,6 +166,20 @@ func (n *AVLNode) next(key string) *AVLNode {
 			return nil
 		}
 	}
+}
+
+// Gets number of nodes in the tree
+func (n *AVLNode) size() int {
+	var size int = 1
+	if n.left != nil {
+		size += n.left.size()
+	}
+
+	if n.right != nil {
+		size += n.right.size()
+	}
+
+	return size
 }
 
 // Displays nodes left-depth first (used for debugging)
