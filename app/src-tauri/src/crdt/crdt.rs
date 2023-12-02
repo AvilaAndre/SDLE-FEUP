@@ -326,7 +326,7 @@ pub mod crdt {
     
 #[cfg(test)]
 pub mod tests {
-    use crate::crdt::crdt::*;
+    use crate::crdt::crdt::crdt::*;
     use uuid::Uuid;
     use std::collections::HashSet;
 
@@ -719,7 +719,7 @@ pub mod tests {
 
 #[cfg(test)]
 mod property_bounded_pn_counter_v2 {
-    use crate::crdt::crdt::*;
+    use crate::crdt::crdt::crdt::*;
     use uuid::Uuid;
     use proptest::prelude::*;
     use rand::random;
@@ -847,7 +847,7 @@ mod property_bounded_pn_counter_v2 {
 //TODO: property tests
 #[cfg(test)]
 mod property_optimized_awset {
-    use crate::crdt::crdt::*;
+    use crate::crdt::crdt::crdt::*;
     use uuid::Uuid;
     use proptest::prelude::*;
     use std::collections::HashSet;
@@ -1084,7 +1084,7 @@ mod property_optimized_awset {
 
 #[cfg(test)]
 mod property_shopping_list_tests {
-    use crate::crdt::crdt::*;
+    use crate::crdt::crdt::crdt::*;
     use proptest::prelude::*;
 
 

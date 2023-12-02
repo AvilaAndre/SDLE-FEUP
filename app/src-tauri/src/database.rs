@@ -30,6 +30,17 @@ pub trait Operation {
         reason_if_store_fails: &'static str,
     ) -> Result<bool, &'static str>;
 
+
+    fn store_user(
+        &self,
+        node_id: String, 
+        user: User, 
+        reason_if_store_fails: &'static str ) -> Result<bool, &'static str>;
+    fn get_user(
+        &self,
+        node_id: String,
+    ) -> Result<User, &'static str>;
+
     fn get_list(&self, id: String) -> Result<ShoppingListData, &'static str>;
 
     fn get_all_lists_info(&self) -> Result<Vec<ListInfo>, &'static str>;
@@ -55,6 +66,32 @@ impl Operation for UnQLite {
 
         let _ = self.commit();
         return Ok(true);
+    }
+
+    fn store_user(
+        &self, 
+        node_id: String, 
+        user: User, 
+        reason_if_store_fails: &'static str
+    )-> Result<bool, &'static str> {
+        let serialized_user: String = unwrap_or_return!(user.serialize_to_string());
+
+        unwrap_or_return_with!(
+            self.kv_store(node_id, serialized_user),
+            Err(reason_if_store_fails)
+        );
+
+        let _ = self.commit();
+        return Ok(true);
+    }
+
+    fn get_user(&self, node_id: String) -> Result<User, &'static str>{
+        let result: Vec<u8> = unwrap_or_return_with!(
+            self.kv_fetch(node_id),
+            Err("Failed to find list with the given id")
+        );
+
+        return User::deserialize_from_slice(result);
     }
 
     fn get_list(&self, id: String) -> Result<ShoppingListData, &'static str> { //Adapt for the new type of id for the lists
