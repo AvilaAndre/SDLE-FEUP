@@ -74,14 +74,20 @@ func (c *BoundedPNCounter) Compare(other *BoundedPNCounter) bool {
 
 	for nodeID, val1 := range c.positiveCount {
 		val2, ok := other.positiveCount[nodeID]
-		if !ok || val1 > val2 {
+		if !ok {
+			continue
+		}
+		if val1 > val2 {
 			return false
 		}
 	}
 
 	for nodeID, val1 := range c.negativeCount {
 		val2, ok := other.negativeCount[nodeID]
-		if !ok || val1 > val2 {
+		if !ok {
+			continue
+		}
+		if val1 > val2 {
 			return false
 		}
 	}
@@ -164,8 +170,6 @@ func NewAWSet() *AWSet {
 
 // Elements returns the unique elements in the AWSet.
 func (s *AWSet) Elements() []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	uniqueItems := make(map[string]struct{})
 
@@ -184,8 +188,6 @@ func (s *AWSet) Elements() []string {
 
 // Contains checks if the given element is in the AWSet.
 func (s *AWSet) Contains(itemName string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	for _, item := range s.state {
 		if item.name == itemName {
@@ -198,8 +200,6 @@ func (s *AWSet) Contains(itemName string) bool {
 
 // MaxI returns the maximum counter for a given node in the context.
 func (s *AWSet) MaxI(nodeID string) uint32 {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	var maxCounter uint32
 	for _, ctxItem := range s.context {
@@ -213,8 +213,6 @@ func (s *AWSet) MaxI(nodeID string) uint32 {
 
 // NextI returns the next counter for a given node.
 func (s *AWSet) NextI(nodeID string) (string, uint32) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	maxCounter := s.MaxI(nodeID) + 1
 	return nodeID, maxCounter
@@ -222,8 +220,6 @@ func (s *AWSet) NextI(nodeID string) (string, uint32) {
 
 // AddI adds an item to the AWSet.
 func (s *AWSet) AddI(itemName string, nodeID string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	nodeID, counter := s.NextI(nodeID)
 
@@ -252,8 +248,6 @@ func (s *AWSet) AddI(itemName string, nodeID string) {
 
 // RmvI removes an item from the AWSet.
 func (s *AWSet) RmvI(itemName string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	// Remove old state items with the same name
 	var newState []item
@@ -267,8 +261,6 @@ func (s *AWSet) RmvI(itemName string) {
 
 // Filter returns the filtered state of the AWSet.
 func (s *AWSet) Filter(incAWSet *AWSet) []item {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	var result []item
 
@@ -291,8 +283,6 @@ func (s *AWSet) Filter(incAWSet *AWSet) []item {
 
 // Merge merges two AWSets.
 func (s *AWSet) Merge(incAWSet *AWSet) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	// Intersection of states
 	var intersection []item
@@ -343,8 +333,6 @@ func generateNodeID() string {
 
 // AddOrUpdateItem adds or updates an item in the shopping list.
 func (l *ShoppingList) AddOrUpdateItem(itemName string, quantityChange int) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 
 	if _, ok := l.items[itemName]; !ok {
 		l.items[itemName] = NewBoundedPNCounter()
@@ -361,8 +349,6 @@ func (l *ShoppingList) AddOrUpdateItem(itemName string, quantityChange int) {
 
 // RemoveItem removes an item from the shopping list.
 func (l *ShoppingList) RemoveItem(itemName string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 
 	l.awSet.RmvI(itemName)
 	delete(l.items, itemName)
@@ -370,29 +356,30 @@ func (l *ShoppingList) RemoveItem(itemName string) {
 
 // Merge merges two shopping lists.
 func (l *ShoppingList) Merge(incList *ShoppingList) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 
 	l.awSet.Merge(incList.awSet)
 
 	// Merge items based on the merged AWSet
 	for _, itemName := range l.awSet.Elements() {
-		l.items[itemName] = l.items[itemName].Merge(incList.items[itemName])
+		selfItem, selfExists := l.items[itemName]
+		incItem, incExists := incList.items[itemName]
+
+		if selfExists && incExists {
+			l.items[itemName] = selfItem.Merge(incItem)
+		} else if incExists {
+			l.items[itemName] = incItem
+		}
 	}
 }
 
 // GetItems returns the names of all items in the shopping list.
 func (l *ShoppingList) GetItems() []string {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 
 	return l.awSet.Elements()
 }
 
 // GetItemQuantity returns the quantity of an item in the shopping list.
 func (l *ShoppingList) GetItemQuantity(itemName string) int32 {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 
 	return l.items[itemName].Value()
 }
