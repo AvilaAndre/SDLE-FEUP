@@ -50,22 +50,27 @@
         nextItemValue = nextItemValue.trim();
         if (nextItemValue === "") return;
 
+        console.log("nextItemValue", nextItemValue);
+
         await invoke("add_item_to_list", {
             listId: data.list_info.list_id,
             name: nextItemValue,
             qtd: 1,
-        }).then((value: any) => {
-            if (value) {
-                data.items.push({
-                    id: 0,
-                    name: nextItemValue,
-                    list_id: data.list_info.list_id,
-                    qtd: 1,
-                });
-                // to activate svelte's reactivity
-                data.items = data.items;
-            }
-        });
+        })
+            .then((value: any) => {
+                if (value) {
+                    data.items.push({
+                        name: nextItemValue,
+                        checked: false,
+                        qtd: 1,
+                    });
+                    // to activate svelte's reactivity
+                    data.items = data.items;
+                }
+            })
+            .catch((err) => {
+                console.log("error", err);
+            });
 
         nextItemValue = "";
     };
@@ -89,6 +94,10 @@
     })();
 
     openTab(data.list_info.title, "/list?id=" + data.list_info.list_id);
+
+    // items = data.crdt.awset.state
+
+    console.log("data", data.items);
 </script>
 
 <svelte:head>
@@ -172,9 +181,9 @@
                     }, 1000)}
                 class="text-5xl hidden-placeholder focus-visible:outline-none"
             />
-            {#if data.list_info.share_id}
+            {#if data.list_info.list_id}
                 <h4 class="text-sm text-slate-700 pl-1">
-                    {data.list_info.share_id}
+                    {data.list_info.list_id}
                 </h4>
             {/if}
         </div>
@@ -185,7 +194,7 @@
                     <div
                         class="text-lg w-[36rem] mx-auto p-1 pl-2 group-hover:bg-gray-100 hover:cursor-pointer break-words"
                     >
-                        {item.name}
+                        {JSON.stringify(item)}
                     </div>
                 </li>
             {/each}
