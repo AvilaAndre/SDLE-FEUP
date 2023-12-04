@@ -10,7 +10,7 @@ macro_rules! unwrap_or_return {
             Ok(x) => x,
             Err(err) => return Err(err),
         }
-    }
+    };
 }
 
 #[macro_export]
@@ -20,9 +20,8 @@ macro_rules! unwrap_or_return_with {
             Ok(x) => x,
             Err(_) => return $reason,
         }
-    }
+    };
 }
-
 
 pub use unwrap_or_return;
 pub use unwrap_or_return_with;
