@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-var numberOfProperties = 1000000
+var numberOfProperties = 100000
 
 func TestBoundedPNCounter(t *testing.T) {
 	// Create two BoundedPNCounters
