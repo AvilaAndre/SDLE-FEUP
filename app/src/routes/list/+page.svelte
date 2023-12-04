@@ -87,9 +87,25 @@
         });
     };
 
-    const updateItemCounter = async (item: ListItemInfo) => {
-        // TODO: update item counter and check
-        console.log("update", item);
+    const updateItemCounter = async (
+        item: ListItemInfo
+    ): Promise<ListItemInfo> => {
+        await invoke("update_list_item", {
+            listId: data.list_info.list_id,
+            listItem: item.name,
+            counter: item.qtd,
+            checked: item.checked,
+        })
+            .then((value) => {
+                // console.log("Returned UPDATE with", value);
+                item.checked = value.checked;
+                item.qtd = value.counter;
+            })
+            .catch((error) => {
+                console.log(error);
+            });
+
+        return item;
     };
 
     openTab(data.list_info.title, "/list?id=" + data.list_info.list_id);
@@ -185,7 +201,11 @@
         <br />
         <ul class="flex flex-col gap-y-1">
             {#each data.items as item}
-                <ListItem bind:item on:update={() => updateItemCounter(item)} />
+                <ListItem
+                    bind:item
+                    on:update={async () =>
+                        (item = await updateItemCounter(item))}
+                />
             {/each}
             <button
                 type="button"
