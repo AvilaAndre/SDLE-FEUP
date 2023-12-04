@@ -4,9 +4,11 @@
     import UploadIcon from "$lib/icons/UploadIcon.svelte";
     import DownloadIcon from "$lib/icons/DownloadIcon.svelte";
     import PublishIcon from "$lib/icons/PublishIcon.svelte";
-    import type { ShoppingListData } from "$lib/types";
+    import type { ListItemInfo, ShoppingListData } from "$lib/types";
     import { invoke } from "@tauri-apps/api/tauri";
     import { openTab } from "$lib/writables/listTabs";
+    import ListItem from "$lib/components/ListItem.svelte";
+    import { typewatch } from "../../utils/typewatch";
 
     export let data: ShoppingListData;
 
@@ -85,19 +87,12 @@
         });
     };
 
-    var typewatch = (function () {
-        var timer = 0;
-        return function (callback: TimerHandler, ms: number | undefined) {
-            clearTimeout(timer);
-            timer = setTimeout(callback, ms);
-        };
-    })();
+    const updateItemCounter = async (item: ListItemInfo) => {
+        // TODO: update item counter and check
+        console.log("update", item);
+    };
 
     openTab(data.list_info.title, "/list?id=" + data.list_info.list_id);
-
-    // items = data.crdt.awset.state
-
-    console.log("data", data.items);
 </script>
 
 <svelte:head>
@@ -188,15 +183,9 @@
             {/if}
         </div>
         <br />
-        <ul>
+        <ul class="flex flex-col gap-y-1">
             {#each data.items as item}
-                <li class="w-full group">
-                    <div
-                        class="text-lg w-[36rem] mx-auto p-1 pl-2 group-hover:bg-gray-100 hover:cursor-pointer break-words"
-                    >
-                        {JSON.stringify(item)}
-                    </div>
-                </li>
+                <ListItem bind:item on:update={() => updateItemCounter(item)} />
             {/each}
             <button
                 type="button"
