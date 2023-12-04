@@ -50,7 +50,7 @@ func (c *BoundedPNCounter) Decrement(nodeID string, amount uint32) {
 }
 
 // Value returns the computed value of the counter.
-func (c *BoundedPNCounter) Value() int {
+func (c *BoundedPNCounter) Value() int32 {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -64,7 +64,7 @@ func (c *BoundedPNCounter) Value() int {
 		sumNegative += v
 	}
 
-	return int(sumPositive - sumNegative)
+	return int32(sumPositive - sumNegative)
 }
 
 // Compare compares two BoundedPNCounters.
@@ -74,14 +74,20 @@ func (c *BoundedPNCounter) Compare(other *BoundedPNCounter) bool {
 
 	for nodeID, val1 := range c.positiveCount {
 		val2, ok := other.positiveCount[nodeID]
-		if !ok || val1 > val2 {
+		if !ok {
+			continue
+		}
+		if val1 > val2 {
 			return false
 		}
 	}
 
 	for nodeID, val1 := range c.negativeCount {
 		val2, ok := other.negativeCount[nodeID]
-		if !ok || val1 > val2 {
+		if !ok {
+			continue
+		}
+		if val1 > val2 {
 			return false
 		}
 	}
@@ -89,24 +95,43 @@ func (c *BoundedPNCounter) Compare(other *BoundedPNCounter) bool {
 	return true
 }
 
-// Merge merges two BoundedPNCounters.
 func (c *BoundedPNCounter) Merge(other *BoundedPNCounter) *BoundedPNCounter {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	result := NewBoundedPNCounter()
+	merged := NewBoundedPNCounter()
 
-	for nodeID, val1 := range c.positiveCount {
-		val2, _ := other.positiveCount[nodeID]
-		result.positiveCount[nodeID] = max(val1, val2)
+	// Merge positive counts
+	for nodeID, selfCount := range c.positiveCount {
+		otherCount, ok := other.positiveCount[nodeID]
+		if !ok {
+			otherCount = 0
+		}
+		merged.positiveCount[nodeID] = max(selfCount, otherCount)
 	}
 
-	for nodeID, val1 := range c.negativeCount {
-		val2, _ := other.negativeCount[nodeID]
-		result.negativeCount[nodeID] = max(val1, val2)
+	for nodeID, otherCount := range other.positiveCount {
+		if _, ok := c.positiveCount[nodeID]; !ok {
+			merged.positiveCount[nodeID] = max(0, otherCount)
+		}
 	}
 
-	return result
+	// Merge negative counts
+	for nodeID, selfCount := range c.negativeCount {
+		otherCount, ok := other.negativeCount[nodeID]
+		if !ok {
+			otherCount = 0
+		}
+		merged.negativeCount[nodeID] = max(selfCount, otherCount)
+	}
+
+	for nodeID, otherCount := range other.negativeCount {
+		if _, ok := c.negativeCount[nodeID]; !ok {
+			merged.negativeCount[nodeID] = max(0, otherCount)
+		}
+	}
+
+	return merged
 }
 
 // max returns the maximum of two uint32 values.
@@ -145,8 +170,6 @@ func NewAWSet() *AWSet {
 
 // Elements returns the unique elements in the AWSet.
 func (s *AWSet) Elements() []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	uniqueItems := make(map[string]struct{})
 
@@ -165,8 +188,6 @@ func (s *AWSet) Elements() []string {
 
 // Contains checks if the given element is in the AWSet.
 func (s *AWSet) Contains(itemName string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	for _, item := range s.state {
 		if item.name == itemName {
@@ -179,8 +200,6 @@ func (s *AWSet) Contains(itemName string) bool {
 
 // MaxI returns the maximum counter for a given node in the context.
 func (s *AWSet) MaxI(nodeID string) uint32 {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	var maxCounter uint32
 	for _, ctxItem := range s.context {
@@ -194,8 +213,6 @@ func (s *AWSet) MaxI(nodeID string) uint32 {
 
 // NextI returns the next counter for a given node.
 func (s *AWSet) NextI(nodeID string) (string, uint32) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	maxCounter := s.MaxI(nodeID) + 1
 	return nodeID, maxCounter
@@ -203,8 +220,6 @@ func (s *AWSet) NextI(nodeID string) (string, uint32) {
 
 // AddI adds an item to the AWSet.
 func (s *AWSet) AddI(itemName string, nodeID string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	nodeID, counter := s.NextI(nodeID)
 
@@ -233,8 +248,6 @@ func (s *AWSet) AddI(itemName string, nodeID string) {
 
 // RmvI removes an item from the AWSet.
 func (s *AWSet) RmvI(itemName string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	// Remove old state items with the same name
 	var newState []item
@@ -247,17 +260,126 @@ func (s *AWSet) RmvI(itemName string) {
 }
 
 // Filter returns the filtered state of the AWSet.
-func (s *AWSet) Filter(include func(itemName string) bool) []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *AWSet) Filter(incAWSet *AWSet) []item {
 
-	var result []string
-	for _, item := range s.state {
-		if include(item.name) {
-			result = append(result, item.name)
+	var result []item
+
+	for _, stateItem := range s.state {
+		include := true
+		for _, ctxItem := range incAWSet.context {
+			if stateItem.nodeID == ctxItem.nodeID && stateItem.counter < ctxItem.counter {
+				include = false
+				break
+			}
+		}
+
+		if include {
+			result = append(result, stateItem)
 		}
 	}
 
-	sort.Strings(result)
 	return result
+}
+
+// Merge merges two AWSets.
+func (s *AWSet) Merge(incAWSet *AWSet) {
+
+	// Intersection of states
+	var intersection []item
+	for _, stateItem := range s.state {
+		for _, incItem := range incAWSet.state {
+			if stateItem.name == incItem.name && stateItem.nodeID == incItem.nodeID && stateItem.counter == incItem.counter {
+				intersection = append(intersection, stateItem)
+			}
+		}
+	}
+
+	// Union of filtered states
+	filteredState1 := s.Filter(incAWSet)
+	filteredState2 := incAWSet.Filter(s)
+	union := append(filteredState1, filteredState2...)
+	union = append(union, intersection...)
+
+	// Union of contexts
+	unionContext := append(s.context, incAWSet.context...)
+
+	// Update AWSet
+	s.state = union
+	s.context = unionContext
+}
+
+// ShoppingList represents a shopping list with CRDT support.
+type ShoppingList struct {
+	nodeID string
+	items  map[string]*BoundedPNCounter
+	awSet  *AWSet
+	mu     sync.Mutex
+}
+
+// NewShoppingList creates a new ShoppingList.
+func NewShoppingList() *ShoppingList {
+	return &ShoppingList{
+		nodeID: generateNodeID(),
+		items:  make(map[string]*BoundedPNCounter),
+		awSet:  NewAWSet(),
+	}
+}
+
+// generateNodeID generates a unique node ID.
+func generateNodeID() string {
+	// Implement your logic to generate a unique node ID.
+	return "unique_node_id"
+}
+
+// AddOrUpdateItem adds or updates an item in the shopping list.
+func (l *ShoppingList) AddOrUpdateItem(itemName string, quantityChange int) {
+
+	if _, ok := l.items[itemName]; !ok {
+		l.items[itemName] = NewBoundedPNCounter()
+	}
+
+	if quantityChange < 0 {
+		l.items[itemName].Decrement(l.nodeID, uint32(-quantityChange))
+		l.awSet.AddI(itemName, l.nodeID)
+	} else if quantityChange > 0 {
+		l.items[itemName].Increment(l.nodeID, uint32(quantityChange))
+		l.awSet.AddI(itemName, l.nodeID)
+	}
+}
+
+// RemoveItem removes an item from the shopping list.
+func (l *ShoppingList) RemoveItem(itemName string) {
+
+	l.awSet.RmvI(itemName)
+	delete(l.items, itemName)
+}
+
+// Merge merges two shopping lists.
+func (l *ShoppingList) Merge(incList *ShoppingList) {
+
+	l.awSet.Merge(incList.awSet)
+
+	// Merge items based on the merged AWSet
+	for _, itemName := range l.awSet.Elements() {
+		selfItem, selfExists := l.items[itemName]
+		incItem, incExists := incList.items[itemName]
+
+		if selfExists && incExists {
+			l.items[itemName] = selfItem.Merge(incItem)
+		} else if incExists {
+			l.items[itemName] = incItem
+		}
+	}
+}
+
+// GetItems returns the names of all items in the shopping list.
+func (l *ShoppingList) GetItems() []string {
+
+	return l.awSet.Elements()
+}
+
+// GetItemQuantity returns the quantity of an item in the shopping list.
+func (l *ShoppingList) GetItemQuantity(itemName string) int32 {
+
+	return l.items[itemName].Value()
 }
