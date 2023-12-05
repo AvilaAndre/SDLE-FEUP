@@ -258,7 +258,7 @@ func handleOperation(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Get the information available on this machine
-		valueRead := database.getValueRaw(target["list_id"])
+		valueRead, _ := database.getValue([]byte(target["list_id"]))
 
 		if len(valueRead) == 0 {
 			w.WriteHeader(http.StatusNotFound)
@@ -299,7 +299,7 @@ func handleOperation(w http.ResponseWriter, r *http.Request) {
  */
 func sendReadAndWait(address string, port string, payload map[string]string, readChan chan readChanStruct) {
 	if address == serverHostname && port == serverPort {
-		value := database.getValueRaw(payload["list_id"])
+		value, _ := database.getValue([]byte(payload["list_id"]))
 
 		if len(value) == 0 {
 			readChan <- readChanStruct{2, "", address, port}
