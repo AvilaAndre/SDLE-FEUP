@@ -47,7 +47,8 @@
         <div class="w-fit h-10 inline-flex overflow-hidden shrink-0">
             <button
                 type="button"
-                class="w-8 bg-gray-200 hover:bg-gray-400"
+                class="w-8 bg-gray-200 hover:bg-gray-400 disabled:bg-gray-200"
+                disabled={item.checked}
                 on:click={() => {
                     item.qtd = Math.max(item.qtd - 1, 0);
                     typewatch(() => {
@@ -88,7 +89,8 @@
             />
             <button
                 type="button"
-                class="w-8 bg-gray-200 hover:bg-gray-400"
+                class="w-8 bg-gray-200 hover:bg-gray-400 disabled:bg-gray-200"
+                disabled={item.checked}
                 on:click={() => {
                     item.qtd++;
                     typewatch(() => {
