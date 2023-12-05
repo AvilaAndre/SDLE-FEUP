@@ -105,7 +105,8 @@ pub fn add_item_to_list(
 ) -> Result<bool, &'static str> {
     let mut list = unwrap_or_return!(db.get_list(list_id.clone()));
 
-    list.crdt.add_or_update_item(name.to_string(), qtd);
+    list.crdt
+        .add_or_update_item(name.to_string(), qtd.unsigned_abs(), qtd < 0);
 
     return Ok(unwrap_or_return!(db.store(
         list_id,
@@ -158,17 +159,20 @@ pub fn update_list_item(
             let item = simple_list.items.get(&item_name).unwrap();
 
             if item.counter != counter {
-                list.crdt.add_or_update_item(
-                    item_name.clone(),
-                    (counter - item.counter).try_into().unwrap(), // FIXME: This overflows
-                )
+                if counter > item.counter {
+                    list.crdt
+                        .add_or_update_item(item_name.clone(), counter - item.counter, false)
+                } else {
+                    list.crdt
+                        .add_or_update_item(item_name.clone(), item.counter - counter, true)
+                }
             }
 
             match db.store(list_id, list, "Failed to store updated item quantity") {
                 Ok(_) => {
                     return Ok(SimpleListItem {
                         title: item_name,
-                        counter: counter,
+                        counter,
                         checked: item.checked,
                     })
                 }
@@ -205,10 +209,8 @@ pub fn item_check(list_id: String, item_name: String, db: &UnQLite) -> Result<bo
         }
     };
 
-    list.crdt.add_or_update_item(
-        item_name,
-        unwrap_or_return_with!(reset_decrement.try_into(), Err("Try Into Error")),
-    );
+    list.crdt
+        .add_or_update_item(item_name, reset_decrement, true);
 
     return Ok(unwrap_or_return!(db.store(
         list_id,

@@ -233,12 +233,18 @@ pub mod crdt {
             }
         }
         //Add-Wins
-        pub fn add_or_update_item(&mut self, item_name: String, quantity_change: i32) {
+        pub fn add_or_update_item(
+            &mut self,
+            item_name: String,
+            quantity_change: u32,
+            decrement: bool,
+        ) {
             //using the information in awset we add_or_update the Map of Items
             if let Some(existing_item) = self.items.get_mut(&item_name) {
-                if quantity_change < 0 {
-                    let dec_quant_change: u32 = (-1 * quantity_change).try_into().unwrap();
-                    existing_item.decrement(self.node_id, dec_quant_change.try_into().unwrap());
+                if quantity_change == 0 {
+                    return;
+                } else if decrement {
+                    existing_item.decrement(self.node_id, quantity_change);
                     self.awset.add_i(item_name.clone(), self.node_id); // only when some positive quantity is incremented/decremented we add on the awset
                 } else if quantity_change > 0 {
                     existing_item.increment(self.node_id, quantity_change.try_into().unwrap());
@@ -248,18 +254,17 @@ pub mod crdt {
                 //Item doesn't exist on Map of Items
 
                 let mut new_item = BoundedPNCounterv2::new();
-                if quantity_change < 0 {
-                    let dec_quant_change = -1 * quantity_change;
-                    new_item.decrement(self.node_id, dec_quant_change.try_into().unwrap());
-                    self.items.insert(item_name.clone(), new_item);
+                if quantity_change == 0 {
+                    // if Item do not exist, and someone want , just add the item with no increment/decrement values
+                    self.items.insert(item_name.clone(), new_item); // We just insert the item
                     self.awset.add_i(item_name.clone(), self.node_id);
-                } else if quantity_change > 0 {
-                    new_item.increment(self.node_id, quantity_change.try_into().unwrap());
+                } else if decrement {
+                    new_item.decrement(self.node_id, quantity_change);
                     self.items.insert(item_name.clone(), new_item);
                     self.awset.add_i(item_name.clone(), self.node_id);
                 } else {
-                    // if Item do not exist, and someone want , just add the item with no increment/decrement values
-                    self.items.insert(item_name.clone(), new_item); // We just insert the item
+                    new_item.increment(self.node_id, quantity_change.try_into().unwrap());
+                    self.items.insert(item_name.clone(), new_item);
                     self.awset.add_i(item_name.clone(), self.node_id);
                 }
             }
@@ -1051,7 +1056,7 @@ mod property_shopping_list_tests {
         proptest::collection::hash_map(item_strategy, any::<i32>(), 0..100).prop_map(|items| {
             let mut list = ShoppingList::new();
             for (name, quantity) in items {
-                list.add_or_update_item(name, quantity);
+                list.add_or_update_item(name, quantity.unsigned_abs(), quantity < 0);
             }
             list
         })
@@ -1107,7 +1112,7 @@ mod property_shopping_list_tests {
         // Test adding/updating/removing items
         #[test]
         fn test_add_update_remove(mut a in shopping_list_strategy(), item1 in "[a-zA-Z][a-zA-Z0-9]*" ,quantity_change in any::<i32>()) {
-            a.add_or_update_item(item1.clone(), quantity_change);
+            a.add_or_update_item(item1.clone(), quantity_change.unsigned_abs(), quantity_change < 0);
             let original_list = a.clone();
 
             prop_assert!(a.get_items().contains(&item1));
