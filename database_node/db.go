@@ -48,16 +48,6 @@ func (db *DatabaseInstance) initialize(address string, port string) {
 
 	log.Println("Database initialized at", dbPath)
 
-	// TODO : REMOVE CODE BELOW
-
-	var testCRDT *crdt_go.ShoppingList = crdt_go.NewShoppingList()
-
-	db.setShoppingList("test", testCRDT)
-
-	res1, res2 := db.getShoppingList("test")
-
-	log.Println("list", res1, res2)
-
 }
 
 func (db *DatabaseInstance) writeToKey(key string, data []byte) {

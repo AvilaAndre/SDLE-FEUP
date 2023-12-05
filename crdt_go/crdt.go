@@ -1,24 +1,27 @@
 package crdt_go
 
 import (
+	"encoding/json"
+	"fmt"
 	_ "fmt"
-	"github.com/google/uuid"
 	"sort"
 	"sync"
+
+	"github.com/google/uuid"
 )
 
 // BoundedPNCounter represents a positive-negative Counter CRDT.
 type BoundedPNCounter struct {
-	positiveCount map[string]uint32
-	negativeCount map[string]uint32
+	PositiveCount map[string]uint32 `json:"positive_count"`
+	NegativeCount map[string]uint32 `json:"negative_count"`
 	mu            sync.Mutex
 }
 
 // NewBoundedPNCounter creates a new BoundedPNCounter.
 func NewBoundedPNCounter() *BoundedPNCounter {
 	return &BoundedPNCounter{
-		positiveCount: make(map[string]uint32),
-		negativeCount: make(map[string]uint32),
+		PositiveCount: make(map[string]uint32),
+		NegativeCount: make(map[string]uint32),
 	}
 }
 
@@ -27,10 +30,10 @@ func (c *BoundedPNCounter) Increment(NodeID string, amount uint32) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if current, ok := c.positiveCount[NodeID]; ok {
-		c.positiveCount[NodeID] = current + amount
+	if current, ok := c.PositiveCount[NodeID]; ok {
+		c.PositiveCount[NodeID] = current + amount
 	} else {
-		c.positiveCount[NodeID] = amount
+		c.PositiveCount[NodeID] = amount
 	}
 }
 
@@ -39,14 +42,14 @@ func (c *BoundedPNCounter) Decrement(NodeID string, amount uint32) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if current, ok := c.negativeCount[NodeID]; ok {
-		if current+amount > c.positiveCount[NodeID] {
-			c.negativeCount[NodeID] = c.positiveCount[NodeID]
+	if current, ok := c.NegativeCount[NodeID]; ok {
+		if current+amount > c.PositiveCount[NodeID] {
+			c.NegativeCount[NodeID] = c.PositiveCount[NodeID]
 		} else {
-			c.negativeCount[NodeID] = current + amount
+			c.NegativeCount[NodeID] = current + amount
 		}
 	} else {
-		c.negativeCount[NodeID] = amount
+		c.NegativeCount[NodeID] = amount
 	}
 }
 
@@ -57,11 +60,11 @@ func (c *BoundedPNCounter) Value() int32 {
 
 	var sumPositive, sumNegative uint32
 
-	for _, v := range c.positiveCount {
+	for _, v := range c.PositiveCount {
 		sumPositive += v
 	}
 
-	for _, v := range c.negativeCount {
+	for _, v := range c.NegativeCount {
 		sumNegative += v
 	}
 
@@ -73,8 +76,8 @@ func (c *BoundedPNCounter) Compare(other *BoundedPNCounter) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	for NodeID, val1 := range c.positiveCount {
-		val2, ok := other.positiveCount[NodeID]
+	for NodeID, val1 := range c.PositiveCount {
+		val2, ok := other.PositiveCount[NodeID]
 		if !ok {
 			continue
 		}
@@ -83,8 +86,8 @@ func (c *BoundedPNCounter) Compare(other *BoundedPNCounter) bool {
 		}
 	}
 
-	for NodeID, val1 := range c.negativeCount {
-		val2, ok := other.negativeCount[NodeID]
+	for NodeID, val1 := range c.NegativeCount {
+		val2, ok := other.NegativeCount[NodeID]
 		if !ok {
 			continue
 		}
@@ -103,32 +106,32 @@ func (c *BoundedPNCounter) Merge(other *BoundedPNCounter) *BoundedPNCounter {
 	merged := NewBoundedPNCounter()
 
 	// Merge positive counts
-	for NodeID, selfCount := range c.positiveCount {
-		otherCount, ok := other.positiveCount[NodeID]
+	for NodeID, selfCount := range c.PositiveCount {
+		otherCount, ok := other.PositiveCount[NodeID]
 		if !ok {
 			otherCount = 0
 		}
-		merged.positiveCount[NodeID] = max(selfCount, otherCount)
+		merged.PositiveCount[NodeID] = max(selfCount, otherCount)
 	}
 
-	for NodeID, otherCount := range other.positiveCount {
-		if _, ok := c.positiveCount[NodeID]; !ok {
-			merged.positiveCount[NodeID] = max(0, otherCount)
+	for NodeID, otherCount := range other.PositiveCount {
+		if _, ok := c.PositiveCount[NodeID]; !ok {
+			merged.PositiveCount[NodeID] = max(0, otherCount)
 		}
 	}
 
 	// Merge negative counts
-	for NodeID, selfCount := range c.negativeCount {
-		otherCount, ok := other.negativeCount[NodeID]
+	for NodeID, selfCount := range c.NegativeCount {
+		otherCount, ok := other.NegativeCount[NodeID]
 		if !ok {
 			otherCount = 0
 		}
-		merged.negativeCount[NodeID] = max(selfCount, otherCount)
+		merged.NegativeCount[NodeID] = max(selfCount, otherCount)
 	}
 
-	for NodeID, otherCount := range other.negativeCount {
-		if _, ok := c.negativeCount[NodeID]; !ok {
-			merged.negativeCount[NodeID] = max(0, otherCount)
+	for NodeID, otherCount := range other.NegativeCount {
+		if _, ok := c.NegativeCount[NodeID]; !ok {
+			merged.NegativeCount[NodeID] = max(0, otherCount)
 		}
 	}
 
@@ -150,18 +153,18 @@ func (c *BoundedPNCounter) Clone() *BoundedPNCounter {
 
 	// Create a new BoundedPNCounter with the same positive and negative counts
 	clone := &BoundedPNCounter{
-		positiveCount: make(map[string]uint32),
-		negativeCount: make(map[string]uint32),
+		PositiveCount: make(map[string]uint32),
+		NegativeCount: make(map[string]uint32),
 	}
 
 	// Copy positive counts
-	for NodeID, count := range c.positiveCount {
-		clone.positiveCount[NodeID] = count
+	for NodeID, count := range c.PositiveCount {
+		clone.PositiveCount[NodeID] = count
 	}
 
 	// Copy negative counts
-	for NodeID, count := range c.negativeCount {
-		clone.negativeCount[NodeID] = count
+	for NodeID, count := range c.NegativeCount {
+		clone.NegativeCount[NodeID] = count
 	}
 
 	return clone
@@ -169,8 +172,8 @@ func (c *BoundedPNCounter) Clone() *BoundedPNCounter {
 
 // AWSet represents an Add-Wins Set CRDT.
 type AWSet struct {
-	State   []item
-	Context []ContextItem
+	State   []item        `json:"state"`
+	Context []ContextItem `json:"context"`
 }
 
 type item struct {
@@ -179,9 +182,82 @@ type item struct {
 	Counter uint32
 }
 
+func (i item) MarshalJSON() ([]byte, error) {
+	a := []interface{}{
+		i.Name,
+		i.NodeID,
+		i.Counter,
+	}
+
+	return json.Marshal(a)
+}
+
+func (i *item) UnmarshalJSON(b []byte) error {
+	var data []interface{}
+
+	err := json.Unmarshal(b, &data)
+
+	if err != nil {
+		return err
+	}
+
+	if val, ok := data[0].(string); ok {
+		i.Name = val
+	} else {
+		return fmt.Errorf("first value not of type string")
+	}
+
+	if val, ok := data[1].(string); ok {
+		i.NodeID = val
+	} else {
+		return fmt.Errorf("second value not of type string")
+	}
+
+	if val, ok := data[2].(float64); ok {
+		i.Counter = uint32(val)
+	} else {
+		return fmt.Errorf("third value not of type float")
+	}
+
+	return nil
+}
+
 type ContextItem struct {
-	NodeID  string
-	Counter uint32
+	NodeID  string `json:"context"`
+	Counter uint32 `json:"counter"`
+}
+
+func (ci ContextItem) MarshalJSON() ([]byte, error) {
+	a := []interface{}{
+		ci.NodeID,
+		ci.Counter,
+	}
+
+	return json.Marshal(a)
+}
+
+func (ci *ContextItem) UnmarshalJSON(b []byte) error {
+	var data []interface{}
+
+	err := json.Unmarshal(b, &data)
+
+	if err != nil {
+		return err
+	}
+
+	if val, ok := data[0].(string); ok {
+		ci.NodeID = val
+	} else {
+		return fmt.Errorf("first value not of type string")
+	}
+
+	if val, ok := data[1].(float64); ok {
+		ci.Counter = uint32(val)
+	} else {
+		return fmt.Errorf("second value not of type float")
+	}
+
+	return nil
 }
 
 // NewAWSet creates a new AWSet.
@@ -400,17 +476,17 @@ func (s *AWSet) Merge(incAWSet *AWSet) {
 
 // ShoppingList represents a shopping list with CRDT support.
 type ShoppingList struct {
-	NodeID string
-	items  map[string]*BoundedPNCounter
-	awSet  *AWSet
+	NodeID string                       `json:"node_id"`
+	Items  map[string]*BoundedPNCounter `json:"items,omitempty"`
+	AwSet  *AWSet                       `json:"awset,omitempty"`
 }
 
 // NewShoppingList creates a new ShoppingList.
 func NewShoppingList() *ShoppingList {
 	return &ShoppingList{
 		NodeID: generateNodeID(),
-		items:  make(map[string]*BoundedPNCounter),
-		awSet:  NewAWSet(),
+		Items:  make(map[string]*BoundedPNCounter),
+		AwSet:  NewAWSet(),
 	}
 }
 
@@ -422,43 +498,43 @@ func generateNodeID() string {
 // AddOrUpdateItem adds or updates an item in the shopping list.
 func (l *ShoppingList) AddOrUpdateItem(itemName string, quantityChange int) {
 
-	if _, ok := l.items[itemName]; !ok {
-		l.items[itemName] = NewBoundedPNCounter()
+	if _, ok := l.Items[itemName]; !ok {
+		l.Items[itemName] = NewBoundedPNCounter()
 	}
 
 	if quantityChange < 0 {
-		l.items[itemName].Decrement(l.NodeID, uint32(-quantityChange))
-		l.awSet.AddI(itemName, l.NodeID)
+		l.Items[itemName].Decrement(l.NodeID, uint32(-quantityChange))
+		l.AwSet.AddI(itemName, l.NodeID)
 	} else if quantityChange > 0 {
-		l.items[itemName].Increment(l.NodeID, uint32(quantityChange))
-		l.awSet.AddI(itemName, l.NodeID)
+		l.Items[itemName].Increment(l.NodeID, uint32(quantityChange))
+		l.AwSet.AddI(itemName, l.NodeID)
 	}
 }
 
 // RemoveItem removes an item from the shopping list.
 func (l *ShoppingList) RemoveItem(itemName string) {
 
-	l.awSet.RmvI(itemName)
-	delete(l.items, itemName)
+	l.AwSet.RmvI(itemName)
+	delete(l.Items, itemName)
 }
 
 // Merge merges two shopping lists.
 func (l *ShoppingList) Merge(incList *ShoppingList) {
 
-	l.awSet.Merge(incList.awSet)
+	l.AwSet.Merge(incList.AwSet)
 
 	// Merge items based on the merged AWSet
-	for _, itemName := range l.awSet.Elements() {
-		selfItem, selfExists := l.items[itemName]
-		incItem, incExists := incList.items[itemName]
+	for _, itemName := range l.AwSet.Elements() {
+		selfItem, selfExists := l.Items[itemName]
+		incItem, incExists := incList.Items[itemName]
 
 		if selfExists && incExists {
-			l.items[itemName] = selfItem.Merge(incItem)
+			l.Items[itemName] = selfItem.Merge(incItem)
 		} else if incExists {
-			l.items[itemName] = incItem
+			l.Items[itemName] = incItem
 		} else {
 			// If the item only exists in one list, use that item
-			l.items[itemName] = selfItem
+			l.Items[itemName] = selfItem
 		}
 	}
 }
@@ -466,15 +542,15 @@ func (l *ShoppingList) Merge(incList *ShoppingList) {
 // GetItems returns the Names of all items in the shopping list.
 func (l *ShoppingList) GetItems() []string {
 
-	return l.awSet.Elements()
+	return l.AwSet.Elements()
 }
 
 // GetItemQuantity returns the quantity of an item in the shopping list. If the item does not exist, the second return is false.
 func (l *ShoppingList) GetItemQuantity(itemName string) (int32, bool) {
-	if !l.awSet.Contains(itemName) {
+	if !l.AwSet.Contains(itemName) {
 		return 0, false
 	}
-	return l.items[itemName].Value(), true
+	return l.Items[itemName].Value(), true
 }
 
 // Clone creates a deep copy of the ShoppingList.
@@ -482,13 +558,13 @@ func (l *ShoppingList) Clone() *ShoppingList {
 	// Create a new ShoppingList with the same NodeID
 	clone := &ShoppingList{
 		NodeID: l.NodeID,
-		items:  make(map[string]*BoundedPNCounter),
-		awSet:  l.awSet.Clone(),
+		Items:  make(map[string]*BoundedPNCounter),
+		AwSet:  l.AwSet.Clone(),
 	}
 
 	// Copy items from the original ShoppingList to the clone
-	for itemName, counter := range l.items {
-		clone.items[itemName] = counter.Clone()
+	for itemName, counter := range l.Items {
+		clone.Items[itemName] = counter.Clone()
 	}
 
 	return clone
