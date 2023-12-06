@@ -68,6 +68,17 @@ func (db *DatabaseInstance) setShoppingList(key string, list *crdt_go.ShoppingLi
 	return db.storeValue([]byte(key), crdtBytes)
 }
 
+// TODO: Read content, if it exists merge
+func (db *DatabaseInstance) updateOrSetShoppingList(key string, list *crdt_go.ShoppingList) bool {
+	crdtBytes, err := json.Marshal(list)
+
+	if err != nil {
+		return false
+	}
+
+	return db.storeValue([]byte(key), crdtBytes)
+}
+
 /**
 * Gets a shopping list from the database
  */
@@ -93,6 +104,8 @@ func (db *DatabaseInstance) getShoppingList(key string) (*crdt_go.ShoppingList, 
 * Gets a value from the database
  */
 func (db *DatabaseInstance) storeValue(key []byte, value []byte) bool {
+	log.Println("wrote list", string(key))
+
 	err := db.conn.Store(key, value)
 
 	if err != nil {
@@ -110,6 +123,8 @@ func (db *DatabaseInstance) storeValue(key []byte, value []byte) bool {
 * Stores a value into the database
  */
 func (db *DatabaseInstance) getValue(key []byte) ([]byte, bool) {
+	log.Println("read list", string(key))
+
 	data, err := db.conn.Fetch(key)
 
 	if err != nil {

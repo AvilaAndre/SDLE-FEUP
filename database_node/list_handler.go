@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 
+	"sdle.com/mod/crdt_go"
 	"sdle.com/mod/hash_ring"
 	"sdle.com/mod/protocol"
 	"sdle.com/mod/utils"
@@ -14,17 +15,18 @@ import (
 
 type readChanStruct struct {
 	code    int
-	content string
+	content *crdt_go.ShoppingList
 	address string
 	port    string
 }
 
 func handleCoordenator(w http.ResponseWriter, r *http.Request) {
+	log.Println("Received /list", r.Method, "request")
+
 	switch r.Method {
 
 	case http.MethodPost:
 		{
-
 			target := make(map[string]string)
 
 			decoded, target := protocol.DecodeRequestBody(w, r.Body, target)
@@ -38,7 +40,7 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 			// The coordenator, upon receiving a read, reads locally and performs a read quorum
 			// however, this coordenator may not be a holder of this information, in this case
 			// it only performs the read quorum
-			healthyNodes := ring.GetHealthyNodesForID(target["list_id"])
+			healthyNodes := ring.GetHealthyNodesForID(listId)
 
 			var healthyNodesStack utils.Stack[*hash_ring.NodeInfo]
 
@@ -74,7 +76,7 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 				waitForRead += 1
 			}
 
-			readsContent := make([]string, 0)
+			readsContent := make([]*crdt_go.ShoppingList, 0)
 			nodesRead := make([]struct {
 				address string
 				port    string
@@ -116,16 +118,14 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 			if len(readsContent) > 0 {
 				// Merge every read
 
-				var finalCRDT string = readsContent[0]
+				// TODO: important, merge all contents
+				var finalCRDT *crdt_go.ShoppingList = readsContent[0]
 
 				// After merging
 
 				w.WriteHeader(http.StatusOK)
 				w.Header().Set("Content-Type", "application/json")
-				resp := make(map[string]string)
-				resp["list_id"] = listId
-				resp["content"] = finalCRDT
-				jsonResp, err := json.Marshal(resp)
+				jsonResp, err := json.Marshal(protocol.ShoppingListOperation{ListId: listId, Content: finalCRDT})
 				if err != nil {
 					log.Fatalf("Error happened in JSON marshal. Err: %s", err)
 				}
@@ -134,7 +134,7 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 
 				// After writing response to the user, write the final CRDT in the database
 				for i := 0; i < len(nodesRead); i++ {
-					go sendWrite(nodesRead[i].address, nodesRead[i].port, protocol.WriteOperation{
+					go sendWrite(nodesRead[i].address, nodesRead[i].port, protocol.ShoppingListOperation{
 						ListId:  listId,
 						Content: finalCRDT,
 					})
@@ -150,26 +150,35 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusServiceUnavailable)
 				return
 			}
-
 		}
 	/**
 	 * This writes the data received into a key on the database
 	 */
 	case http.MethodPut:
 		{
+			var crdtJSONString string
 
-			target := make(map[string]string) // TODO: Replace string with the CRDT
+			crdtDecoded, crdtJSONString := protocol.DecodeRequestBody(w, r.Body, crdtJSONString)
 
-			decoded, target := protocol.DecodeRequestBody(w, r.Body, target)
+			if !crdtDecoded {
+				// The DecodeRequestBody method already sets the right headers
+				return
+			}
 
-			if !decoded {
+			var target protocol.ShoppingListOperation
+
+			crdtErr := json.Unmarshal([]byte(crdtJSONString), &target)
+
+			if crdtErr != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte("Failed to unmarshall CRDT"))
 				return
 			}
 
 			// The coordenator, upon receiving a write, writes locally and performs a quorum
 			// however, this coordenator may not be a holder of this information, in this case
 			// it only performs the quorum
-			healthyNodes := ring.GetHealthyNodesForID(target["list_id"])
+			healthyNodes := ring.GetHealthyNodesForID(target.ListId)
 
 			var healthyNodesStack utils.Stack[*hash_ring.NodeInfo]
 
@@ -197,12 +206,7 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 
 				physicalNode := healthyNodesStack.Pop()
 
-				payload := protocol.WriteOperation{
-					ListId:  target["list_id"],
-					Content: target["content"],
-				}
-
-				go sendWriteAndWait(physicalNode.Address, physicalNode.Port, payload, writeChan)
+				go sendWriteAndWait(physicalNode.Address, physicalNode.Port, target, writeChan)
 				waitForWrite += 1
 			}
 
@@ -221,12 +225,7 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 					if healthyNodesStack.Size() > 0 {
 						physicalNode := healthyNodesStack.Pop()
 
-						payload := protocol.WriteOperation{
-							ListId:  target["list_id"],
-							Content: target["content"],
-						}
-
-						go sendWriteAndWait(physicalNode.Address, physicalNode.Port, payload, writeChan)
+						go sendWriteAndWait(physicalNode.Address, physicalNode.Port, target, writeChan)
 					} else {
 						// Cannot write anymore so we do not wait
 						waitForWrite--
@@ -246,6 +245,7 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleOperation(w http.ResponseWriter, r *http.Request) {
+	log.Println("Received /operation", r.Method, "request")
 	switch r.Method {
 	// The read operation
 	case http.MethodPost:
@@ -258,18 +258,17 @@ func handleOperation(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Get the information available on this machine
-		valueRead, _ := database.getValue([]byte(target["list_id"]))
+		valueRead, readSuccess := database.getShoppingList(target["list_id"])
 
-		if len(valueRead) == 0 {
+		if !readSuccess {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
-		resp := make(map[string]string)
-		resp["content"] = string(valueRead)
-		jsonResp, err := json.Marshal(resp)
+
+		jsonResp, err := json.Marshal(protocol.ShoppingListOperation{ListId: target["list_id"], Content: valueRead})
 		if err != nil {
 			log.Fatalf("Error happened in JSON marshal. Err: %s", err)
 		}
@@ -278,16 +277,18 @@ func handleOperation(w http.ResponseWriter, r *http.Request) {
 		return
 	// The write operation
 	case http.MethodPut:
-		target := make(map[string]string) // TODO: Replace string with the CRDT
+		var target protocol.ShoppingListOperation
 
-		decoded, target := protocol.DecodeRequestBody(w, r.Body, target)
+		crdtErr, target := protocol.DecodeRequestBody(w, r.Body, target)
 
-		if !decoded {
+		if !crdtErr {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Failed to unmarshall CRDT"))
 			return
 		}
 
 		// Write the information received in this machine
-		database.writeToKey(target["list_id"], []byte(target["content"]))
+		database.updateOrSetShoppingList(target.ListId, target.Content)
 	}
 }
 
@@ -299,54 +300,52 @@ func handleOperation(w http.ResponseWriter, r *http.Request) {
  */
 func sendReadAndWait(address string, port string, payload map[string]string, readChan chan readChanStruct) {
 	if address == serverHostname && port == serverPort {
-		value, _ := database.getValue([]byte(payload["list_id"]))
+		value, got_list := database.getShoppingList(payload["list_id"])
 
-		if len(value) == 0 {
-			readChan <- readChanStruct{2, "", address, port}
+		if !got_list {
+			readChan <- readChanStruct{2, nil, address, port}
 			return
 		}
 
-		var target string = string(value)
-
-		readChan <- readChanStruct{1, target, address, port}
+		readChan <- readChanStruct{1, value, address, port}
 		return
 	}
 
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		log.Printf("Error happened in JSON marshal. Err: %s \n", err)
-		readChan <- readChanStruct{3, "", address, port}
+		readChan <- readChanStruct{3, nil, address, port}
 		return
 	}
 
 	response, err := protocol.SendRequestWithData(http.MethodPost, address, port, "/operation", jsonData)
 	if err != nil {
-		readChan <- readChanStruct{3, "", address, port}
+		readChan <- readChanStruct{3, nil, address, port}
 		return
 	}
 
-	// Successful if write suceeds
+	// Successful if read succeeds
 	if response.StatusCode == http.StatusOK {
-		target := make(map[string]string)
+		var target protocol.ShoppingListOperation
 		err = json.NewDecoder(response.Body).Decode(&target)
 		if err != nil {
 			fmt.Println("Error when receiving response from read request", err)
-			readChan <- readChanStruct{3, "", address, port}
+			readChan <- readChanStruct{3, nil, address, port}
 			return
 		}
 
-		readChan <- readChanStruct{1, target["content"], address, port}
+		readChan <- readChanStruct{1, target.Content, address, port}
 	} else if response.StatusCode == http.StatusNotFound {
-		readChan <- readChanStruct{2, "", address, port}
+		readChan <- readChanStruct{2, nil, address, port}
 	} else {
-		readChan <- readChanStruct{3, "", address, port}
+		readChan <- readChanStruct{3, nil, address, port}
 	}
 }
 
 // Returns true if successful, false if not
-func sendWriteAndWait(address string, port string, payload protocol.WriteOperation, writeChan chan bool) {
+func sendWriteAndWait(address string, port string, payload protocol.ShoppingListOperation, writeChan chan bool) {
 	if address == serverHostname && port == serverPort {
-		database.writeToKey(payload.ListId, []byte(payload.Content))
+		database.updateOrSetShoppingList(payload.ListId, payload.Content)
 
 		writeChan <- true
 		return
@@ -366,8 +365,8 @@ func sendWriteAndWait(address string, port string, payload protocol.WriteOperati
 	}
 }
 
-func sendWrite(address string, port string, payload protocol.WriteOperation) (*http.Response, error) {
-	jsonData, err := json.Marshal(protocol.WriteOperationToMap(payload))
+func sendWrite(address string, port string, payload protocol.ShoppingListOperation) (*http.Response, error) {
+	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		fmt.Printf("error happened in JSON marshal: %s \n", err)
 		return nil, fmt.Errorf("error happened in JSON marshal: %s", err)
