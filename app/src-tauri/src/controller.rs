@@ -4,6 +4,8 @@ use crate::macros::*;
 use crate::model::*;
 use std::collections::HashMap;
 
+use reqwest::blocking::Client;
+use serde_json::json;
 use uuid::Uuid;
 
 use unqlite::UnQLite;
@@ -217,4 +219,43 @@ pub fn item_check(list_id: String, item_name: String, db: &UnQLite) -> Result<bo
         list,
         "Failed to store updated item quantity"
     )));
+}
+
+pub fn publish_list(list_id: String, db: &UnQLite) -> Result<bool, &'static str> {
+    let list = unwrap_or_return!(db.get_list(list_id.clone()));
+
+    #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+    struct List {
+        list_id: String,
+        content: ShoppingList,
+    }
+
+    let crdt_body = match serde_json::to_string(&List {
+        list_id: list_id.clone(),
+        content: list.crdt,
+    }) {
+        Ok(body) => body,
+        Err(_) => return Err("failed to serialize crdt"),
+    };
+
+    let request_url = "http://192.168.1.70:9988/list";
+    let response = unwrap_or_return_with!(
+        Client::new()
+            .put(request_url)
+            .json(&json!(&crdt_body))
+            .send(),
+        Err("Failed to make request")
+    );
+
+    println!("Received publish response, status: {}", response.status());
+
+    if response.status().is_success() {
+        let mut list = unwrap_or_return!(db.get_list(list_id.clone()));
+        list.list_info.shared = true;
+
+        let _ = db.store(list_id, list, "failed to store that list is now shared");
+        Ok(true)
+    } else {
+        Ok(false)
+    }
 }

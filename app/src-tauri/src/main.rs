@@ -29,7 +29,8 @@ fn main() {
             get_shopping_list,
             add_item_to_list,
             update_list_title,
-            update_list_item
+            update_list_item,
+            publish_list
         ])
         .setup(|app| {
             let handle = app.handle();
@@ -171,4 +172,19 @@ fn update_list_item(
         }
         Ok(success) => return Ok(success),
     }
+}
+
+#[allow(non_snake_case)]
+#[tauri::command]
+fn publish_list(app_handle: AppHandle, listId: String) {
+    // get list from database
+
+    match app_handle.db(|db| controller::publish_list(listId, db)) {
+        Ok(value) => println!("ok!"),
+        Err(reason) => println!("{}", reason),
+    }
+
+    // send list to server
+
+    println!("publish_list")
 }

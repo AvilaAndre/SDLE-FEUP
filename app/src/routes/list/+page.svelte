@@ -9,6 +9,7 @@
     import { openTab } from "$lib/writables/listTabs";
     import ListItem from "$lib/components/ListItem.svelte";
     import { typewatch } from "../../utils/typewatch";
+    import { list } from "postcss";
 
     export let data: ShoppingListData;
 
@@ -17,7 +18,6 @@
 
     let lastUpdate: number = 20;
 
-    let published: boolean = false;
     let hasDataToUpdate: boolean = true;
 
     const syncShoppingList = () => {
@@ -27,10 +27,16 @@
         if (hasDataToUpdate) hasDataToUpdate = false;
     };
 
-    const publishShoppingList = () => {
-        // TODO: Publish Shopping list logic
-        published = true;
-        console.log("published");
+    const publishShoppingList = async () => {
+        await invoke("publish_list", {
+            listId: data.list_info.list_id,
+        })
+            .then((value: any) => {
+                data.list_info.shared = true;
+            })
+            .catch((err) => {
+                console.log("error", err);
+            });
     };
 
     const uploadShoppingList = () => {
@@ -121,7 +127,7 @@
         class="bg-white px-3 mb-6 w-full h-8 grid grid-flow-row grid-cols-[1fr_0.5fr_1fr] items-center py-2 fixed"
     >
         <div>
-            {#if !published}
+            {#if !data.list_info.shared}
                 <p>Nothing here yet</p>
             {:else}
                 <button
@@ -140,7 +146,7 @@
             </h3>
         </div>
         <div class="flex flex-row justify-end">
-            {#if !published}
+            {#if !data.list_info.shared}
                 <button
                     type="button"
                     on:click={publishShoppingList}
@@ -150,7 +156,7 @@
                     <p>Publish</p>
                 </button>
             {/if}
-            {#if published}
+            {#if data.list_info.shared}
                 <div class="inline-flex gap-1 items-center">
                     <p>
                         Last updated {lastUpdate} minutes ago
