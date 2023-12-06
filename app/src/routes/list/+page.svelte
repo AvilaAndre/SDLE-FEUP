@@ -7,9 +7,10 @@
     import ProgressWheel from "$lib/icons/ProgressWheel.svelte";
     import type { ListItemInfo, ShoppingListData } from "$lib/types";
     import { invoke } from "@tauri-apps/api/tauri";
-    import { openTab } from "$lib/writables/listTabs";
+    import { closeTab, openTab } from "$lib/writables/listTabs";
     import ListItem from "$lib/components/ListItem.svelte";
     import { typewatch } from "../../utils/typewatch";
+    import { error } from "@sveltejs/kit";
 
     export let data: ShoppingListData;
 
@@ -38,7 +39,6 @@
             listId: data.list_info.list_id,
         })
             .then((value: any) => {
-                console.log("published", value);
                 if (value) data.list_info.shared = true;
                 publishing = false;
             })
@@ -58,6 +58,18 @@
         console.log("share");
     };
 
+    const deleteShoppingList = async () => {
+        invoke("delete_list", { listId: data.list_info.list_id })
+            .then((value) => {
+                if (value) {
+                    closeTab("/list?id=" + data.list_info.list_id);
+                } else {
+                    console.log("failed to delete list");
+                }
+            })
+            .catch((reason) => console.log("failed to delete list:", reason));
+    };
+
     const selectNextItem = () => {
         // This line prevents the nextItem text from being selected when pressing spacebar while writing
         if (document.activeElement?.id != nextItem.id) nextItem.select();
@@ -66,8 +78,6 @@
     const addNewItem = async () => {
         nextItemValue = nextItemValue.trim();
         if (nextItemValue === "") return;
-
-        console.log("nextItemValue", nextItemValue);
 
         await invoke("add_item_to_list", {
             listId: data.list_info.list_id,
@@ -135,18 +145,14 @@
         class="bg-white px-3 mb-6 w-full h-8 grid grid-flow-row grid-cols-[1fr_0.5fr_1fr] items-center py-2 fixed z-10"
     >
         <div>
-            {#if !data.list_info.shared}
-                <p>Nothing here yet</p>
-            {:else}
-                <button
-                    type="button"
-                    on:click={shareShoppingList}
-                    class="flex flex-row items-center bg-transparent hover:bg-gray-300 transition-colors p-1 rounded-sm gap-x-1"
-                >
-                    <ShareIcon className="w-6" />
-                    <p>Share</p>
-                </button>
-            {/if}
+            <button
+                type="button"
+                on:click={deleteShoppingList}
+                class="flex flex-row items-center bg-transparent hover:bg-red-300 transition-colors p-1 px-2 rounded-sm gap-x-1"
+            >
+                <PublishIcon className="w-6" />
+                <p>Delete</p>
+            </button>
         </div>
         <div class="text-center">
             <h3>
