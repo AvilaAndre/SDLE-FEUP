@@ -30,7 +30,8 @@ fn main() {
             add_item_to_list,
             update_list_title,
             update_list_item,
-            publish_list
+            publish_list,
+            join_list
         ])
         .setup(|app| {
             let handle = app.handle();
@@ -178,6 +179,16 @@ fn update_list_item(
 #[tauri::command(async)]
 fn publish_list(app_handle: AppHandle, listId: String) -> Result<bool, String> {
     return match app_handle.db(|db| controller::publish_list(listId, db)) {
+        Ok(value) => Ok(value),
+        Err(reason) => Err(reason.to_string()),
+    };
+}
+
+#[allow(non_snake_case)]
+#[tauri::command(async)]
+fn join_list(app_handle: AppHandle, listId: String) -> Result<String, String> {
+    println!("join list {}", listId);
+    return match app_handle.db(|db| controller::join_list(listId, db)) {
         Ok(value) => Ok(value),
         Err(reason) => Err(reason.to_string()),
     };

@@ -12,7 +12,7 @@
 </script>
 
 <li
-    class={"inline-flex w-48 px-2 py-1 h-fit items-end group rounded-t-md" +
+    class={"inline-flex max-w-[12rem] px-1 py-1 h-fit items-end group rounded-t-md" +
         " " +
         (tab.selected ? "tab-selected bg-white" : "")}
 >

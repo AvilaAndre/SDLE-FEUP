@@ -222,8 +222,6 @@ pub fn item_check(list_id: String, item_name: String, db: &UnQLite) -> Result<bo
 }
 
 pub fn publish_list(list_id: String, db: &UnQLite) -> Result<bool, &'static str> {
-    println!("trying to publish");
-
     let list: ShoppingListData = unwrap_or_return!(db.get_list(list_id.clone()));
 
     #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -232,24 +230,17 @@ pub fn publish_list(list_id: String, db: &UnQLite) -> Result<bool, &'static str>
         content: ShoppingList,
     }
 
-    let crdt_body = match serde_json::to_string(&List {
-        list_id: list_id.clone(),
-        content: list.crdt,
-    }) {
-        Ok(body) => body,
-        Err(_) => return Err("failed to serialize crdt"),
-    };
-
-    let request_url = "http://192.168.1.70:9988/list";
+    let request_url = "http://localhost:9988/list";
     let response = unwrap_or_return_with!(
         Client::new()
             .put(request_url)
-            .json(&json!(&crdt_body))
+            .json(&json!(&List {
+                list_id: list_id.clone(),
+                content: list.crdt,
+            }))
             .send(),
         Err("Failed to make request")
     );
-
-    println!("Received publish response, status: {}", response.status());
 
     if response.status().is_success() {
         let mut list = unwrap_or_return!(db.get_list(list_id.clone()));
@@ -258,6 +249,81 @@ pub fn publish_list(list_id: String, db: &UnQLite) -> Result<bool, &'static str>
         let _ = db.store(list_id, list, "failed to store that list is now shared");
         Ok(true)
     } else {
-        Ok(false)
+        Err("Failed to publish the list")
+    }
+}
+
+pub fn join_list(list_id: String, db: &UnQLite) -> Result<String, &'static str> {
+    #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+    struct List {
+        list_id: String,
+    }
+
+    let request_url = "http://localhost:9988/list";
+    let response = unwrap_or_return_with!(
+        Client::new()
+            .post(request_url)
+            .json(&json!(&List {
+                list_id: list_id.clone(),
+            }))
+            .send(),
+        Err("Failed to make request")
+    );
+
+    let status = response.status();
+
+    if status.is_success() {
+        #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+        struct ListReceived {
+            content: ShoppingList,
+            list_id: String,
+        }
+
+        // convert new json data to object
+        let res: ListReceived = unwrap_or_return_with!(
+            response.json::<ListReceived>(),
+            Err("failed to read received list")
+        );
+
+        let list_id: String = res.list_id;
+
+        // Check if this list already existed
+        if db.get_list(list_id.clone()).is_err() {
+            return Err("list already imported");
+        }
+
+        // Create new local list
+        let mut new_list_crdt: ShoppingList = ShoppingList::new_v2(Uuid::new_v4());
+
+        new_list_crdt.merge(&res.content);
+
+        let new_list: ShoppingListData = ShoppingListData {
+            list_info: ListInfo {
+                list_id: list_id.clone(),
+                title: "New Imported List".to_string(),
+                shared: true,
+            },
+            items_checked: HashMap::new(),
+            crdt: new_list_crdt,
+        };
+
+        // Store new list locally
+        let success: bool = unwrap_or_return!(db.store(
+            list_id.clone(),
+            new_list,
+            "failed to store new shopping list"
+        ));
+
+        if success {
+            Ok(list_id)
+        } else {
+            Err("failed to store new shopping list")
+        }
+    } else {
+        if response.status().is_redirection() {
+            Err("failed to find the requested list")
+        } else {
+            Err("communication with the server failed")
+        }
     }
 }

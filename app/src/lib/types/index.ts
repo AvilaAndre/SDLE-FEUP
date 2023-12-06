@@ -1,7 +1,7 @@
 export type ListInfo = {
     list_id: string;
     title: string;
-    shared: Boolean;
+    shared: boolean;
 };
 
 export type AWSet = {

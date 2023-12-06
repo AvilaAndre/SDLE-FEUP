@@ -4,6 +4,7 @@
     import UploadIcon from "$lib/icons/UploadIcon.svelte";
     import DownloadIcon from "$lib/icons/DownloadIcon.svelte";
     import PublishIcon from "$lib/icons/PublishIcon.svelte";
+    import ProgressWheel from "$lib/icons/ProgressWheel.svelte";
     import type { ListItemInfo, ShoppingListData } from "$lib/types";
     import { invoke } from "@tauri-apps/api/tauri";
     import { openTab } from "$lib/writables/listTabs";
@@ -19,6 +20,8 @@
 
     let hasDataToUpdate: boolean = true;
 
+    let publishing: boolean = false;
+
     const syncShoppingList = () => {
         // TODO: Sync Shopping List logic
         console.log("sync");
@@ -27,16 +30,21 @@
     };
 
     const publishShoppingList = async () => {
-        console.log("publishing list");
+        if (publishing) return;
+
+        publishing = true;
+
         invoke("publish_list", {
             listId: data.list_info.list_id,
         })
             .then((value: any) => {
+                console.log("published", value);
                 if (value) data.list_info.shared = true;
-                console.log("list publish");
+                publishing = false;
             })
             .catch((err) => {
-                console.log("error", err);
+                console.log("error publishing", err);
+                publishing = false;
             });
     };
 
@@ -85,11 +93,11 @@
     };
 
     const updateListTitle = async () => {
+        if (data.list_info.title == "") return;
         await invoke("update_list_title", {
             listId: data.list_info.list_id,
             title: data.list_info.title,
         }).then((value: any) => {
-            // TODO: if not value then the list title did not update
             openTab(data.list_info.title, "/list?id=" + data.list_info.list_id);
         });
     };
@@ -124,7 +132,7 @@
 
 <div class="flex flex-col justify-start items-center w-full">
     <div
-        class="bg-white px-3 mb-6 w-full h-8 grid grid-flow-row grid-cols-[1fr_0.5fr_1fr] items-center py-2 fixed"
+        class="bg-white px-3 mb-6 w-full h-8 grid grid-flow-row grid-cols-[1fr_0.5fr_1fr] items-center py-2 fixed z-10"
     >
         <div>
             {#if !data.list_info.shared}
@@ -152,13 +160,17 @@
                     on:click={publishShoppingList}
                     class="flex flex-row items-center bg-transparent hover:bg-gray-300 transition-colors p-1 rounded-sm gap-x-1"
                 >
-                    <PublishIcon className="w-6" />
-                    <p>Publish</p>
+                    {#if publishing}
+                        <ProgressWheel className="w-6 animate-spin" />
+                        <p>Publishing...</p>
+                    {:else}
+                        <PublishIcon className="w-6" />
+                        <p>Publish</p>
+                    {/if}
                 </button>
-            {/if}
-            {#if data.list_info.shared}
+            {:else}
                 <div class="inline-flex gap-1 items-center">
-                    <p>
+                    <p class="text-sm text-gray-600">
                         Last updated {lastUpdate} minutes ago
                     </p>
                     <button
@@ -185,13 +197,14 @@
             {/if}
         </div>
     </div>
-    <div class="h-fit w-full mt-64">
+    <div class="h-fit w-full mt-52">
         <div class="w-[36rem] mx-auto">
             <input
                 type="text"
                 name="ListName"
                 id="listName"
                 bind:value={data.list_info.title}
+                maxlength="24"
                 on:keyup={() =>
                     typewatch(() => {
                         updateListTitle();

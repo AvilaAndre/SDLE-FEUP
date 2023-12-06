@@ -16,11 +16,10 @@
             selected: false,
         },
     ];
-    
 </script>
 
 <ul
-    class="w-full h-12 mx-auto inline-flex justify-left items-end bg-red-200 gap-x-1"
+    class="w-screen h-12 mx-auto inline-flex justify-left items-end bg-red-200 gap-x-1 overflow-scroll"
 >
     {#each tabs as tab}
         <Tab bind:tab />
