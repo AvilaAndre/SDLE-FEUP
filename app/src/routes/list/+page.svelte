@@ -9,7 +9,6 @@
     import { openTab } from "$lib/writables/listTabs";
     import ListItem from "$lib/components/ListItem.svelte";
     import { typewatch } from "../../utils/typewatch";
-    import { list } from "postcss";
 
     export let data: ShoppingListData;
 
@@ -32,7 +31,7 @@
             listId: data.list_info.list_id,
         })
             .then((value: any) => {
-                data.list_info.shared = true;
+                if (value) data.list_info.shared = true;
             })
             .catch((err) => {
                 console.log("error", err);
@@ -103,7 +102,6 @@
             checked: item.checked,
         })
             .then((value) => {
-                // console.log("Returned UPDATE with", value);
                 item.checked = value.checked;
                 item.qtd = value.counter;
             })

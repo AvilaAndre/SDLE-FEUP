@@ -176,15 +176,9 @@ fn update_list_item(
 
 #[allow(non_snake_case)]
 #[tauri::command]
-fn publish_list(app_handle: AppHandle, listId: String) {
-    // get list from database
-
-    match app_handle.db(|db| controller::publish_list(listId, db)) {
-        Ok(value) => println!("ok!"),
-        Err(reason) => println!("{}", reason),
-    }
-
-    // send list to server
-
-    println!("publish_list")
+fn publish_list(app_handle: AppHandle, listId: String) -> Result<bool, String> {
+    return match app_handle.db(|db| controller::publish_list(listId, db)) {
+        Ok(value) => Ok(value),
+        Err(reason) => Err(reason.to_string()),
+    };
 }
