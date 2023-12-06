@@ -222,7 +222,9 @@ pub fn item_check(list_id: String, item_name: String, db: &UnQLite) -> Result<bo
 }
 
 pub fn publish_list(list_id: String, db: &UnQLite) -> Result<bool, &'static str> {
-    let list = unwrap_or_return!(db.get_list(list_id.clone()));
+    println!("trying to publish");
+
+    let list: ShoppingListData = unwrap_or_return!(db.get_list(list_id.clone()));
 
     #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
     struct List {

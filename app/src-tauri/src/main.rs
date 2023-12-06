@@ -175,7 +175,7 @@ fn update_list_item(
 }
 
 #[allow(non_snake_case)]
-#[tauri::command]
+#[tauri::command(async)]
 fn publish_list(app_handle: AppHandle, listId: String) -> Result<bool, String> {
     return match app_handle.db(|db| controller::publish_list(listId, db)) {
         Ok(value) => Ok(value),

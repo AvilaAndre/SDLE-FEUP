@@ -27,11 +27,13 @@
     };
 
     const publishShoppingList = async () => {
-        await invoke("publish_list", {
+        console.log("publishing list");
+        invoke("publish_list", {
             listId: data.list_info.list_id,
         })
             .then((value: any) => {
                 if (value) data.list_info.shared = true;
+                console.log("list publish");
             })
             .catch((err) => {
                 console.log("error", err);
