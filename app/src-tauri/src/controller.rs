@@ -197,6 +197,14 @@ pub fn update_list_item(
         checked,
     })
 }
+
+/**
+ *  Creates a new list and returns the created id
+ * */
+pub fn delete_list(list_id: String, db: &UnQLite) -> Result<bool, &'static str> {
+    db.delete_list(list_id)
+}
+
 /**
  *  Update an item quantity to 0 when a user locally check an item as complete
  * */
