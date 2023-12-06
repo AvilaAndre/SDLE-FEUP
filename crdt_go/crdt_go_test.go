@@ -1,11 +1,12 @@
 package crdt_go
 
 import (
+	"math/rand"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"math/rand"
-	"testing"
 )
 
 var numberOfProperties = 100000
@@ -42,7 +43,7 @@ func TestIncrementBoundedPNCounter(t *testing.T) {
 	c := NewBoundedPNCounter()
 	nodeID := "test_node"
 	c.Increment(nodeID, 5)
-	if count, ok := c.positiveCount[nodeID]; !ok || count != 5 {
+	if count, ok := c.PositiveCount[nodeID]; !ok || count != 5 {
 		t.Errorf("Increment failed. Expected positiveCount[%s] to be 5, got %v", nodeID, count)
 	}
 }
@@ -52,8 +53,8 @@ func TestDecrementBoundedPNCounter(t *testing.T) {
 	nodeID := "test_node"
 	c.Increment(nodeID, 5)
 	c.Decrement(nodeID, 3)
-	if count, ok := c.negativeCount[nodeID]; !ok || count != 3 {
-		t.Errorf("Decrement failed. Expected negativeCount[%s] to be 3, got %v", nodeID, count)
+	if count, ok := c.NegativeCount[nodeID]; !ok || count != 3 {
+		t.Errorf("Decrement failed. Expected NegativeCount[%s] to be 3, got %v", nodeID, count)
 	}
 }
 
@@ -96,7 +97,7 @@ func TestMergeSameKeysBoundedPNCounter(t *testing.T) {
 	c1.Increment(nodeID, 2)
 	c2.Increment(nodeID, 3)
 	merged := c1.Merge(c2)
-	if count, ok := merged.positiveCount[nodeID]; !ok || count != 3 {
+	if count, ok := merged.PositiveCount[nodeID]; !ok || count != 3 {
 		t.Errorf("MergeSameKeys failed. Expected positiveCount[%s] to be 3, got %v", nodeID, count)
 	}
 }
@@ -109,10 +110,10 @@ func TestMergeDisjointKeysBoundedPNCounter(t *testing.T) {
 	c1.Increment(node1, 2)
 	c2.Increment(node2, 3)
 	merged := c1.Merge(c2)
-	if count1, ok := merged.positiveCount[node1]; !ok || count1 != 2 {
+	if count1, ok := merged.PositiveCount[node1]; !ok || count1 != 2 {
 		t.Errorf("MergeDisjointKeys failed. Expected positiveCount[%s] to be 2, got %v", node1, count1)
 	}
-	if count2, ok := merged.positiveCount[node2]; !ok || count2 != 3 {
+	if count2, ok := merged.PositiveCount[node2]; !ok || count2 != 3 {
 		t.Errorf("MergeDisjointKeys failed. Expected positiveCount[%s] to be 3, got %v", node2, count2)
 	}
 }
@@ -121,7 +122,7 @@ func TestMergeEmptyCountersBoundedPNCounter(t *testing.T) {
 	c1 := NewBoundedPNCounter()
 	c2 := NewBoundedPNCounter()
 	merged := c1.Merge(c2)
-	if len(merged.positiveCount) != 0 || len(merged.negativeCount) != 0 {
+	if len(merged.PositiveCount) != 0 || len(merged.NegativeCount) != 0 {
 		t.Errorf("MergeEmptyCounters failed. Expected both positiveCount and negativeCount to be empty.")
 	}
 }
@@ -132,7 +133,7 @@ func TestMergeOneEmptyCounterBoundedPNCounter(t *testing.T) {
 	nodeID := "test_node"
 	c1.Increment(nodeID, 1)
 	merged := c1.Merge(c2)
-	if count, ok := merged.positiveCount[nodeID]; !ok || count != 1 {
+	if count, ok := merged.PositiveCount[nodeID]; !ok || count != 1 {
 		t.Errorf("MergeOneEmptyCounter failed. Expected positiveCount[%s] to be 1, got %v", nodeID, count)
 	}
 }
@@ -560,8 +561,8 @@ func TestBoundedPNCounterAssociativity(t *testing.T) {
 		abC := a.Merge(b).Merge(c)
 		aBC := a.Merge(b.Merge(c))
 
-		assert.Equal(t, abC.positiveCount, aBC.positiveCount)
-		assert.Equal(t, abC.negativeCount, aBC.negativeCount)
+		assert.Equal(t, abC.PositiveCount, aBC.PositiveCount)
+		assert.Equal(t, abC.NegativeCount, aBC.NegativeCount)
 	}
 }
 
@@ -581,8 +582,8 @@ func TestBoundedPNCounterCommutativity(t *testing.T) {
 		ab := a.Merge(b)
 		ba := b.Merge(a)
 
-		assert.Equal(t, ab.positiveCount, ba.positiveCount)
-		assert.Equal(t, ab.negativeCount, ba.negativeCount)
+		assert.Equal(t, ab.PositiveCount, ba.PositiveCount)
+		assert.Equal(t, ab.NegativeCount, ba.NegativeCount)
 	}
 }
 
@@ -600,8 +601,8 @@ func TestBoundedPNCounterIdempotency(t *testing.T) {
 
 		aa := a.Merge(a)
 
-		assert.Equal(t, a.positiveCount, aa.positiveCount)
-		assert.Equal(t, a.negativeCount, aa.negativeCount)
+		assert.Equal(t, a.PositiveCount, aa.PositiveCount)
+		assert.Equal(t, a.NegativeCount, aa.NegativeCount)
 	}
 }
 
@@ -615,7 +616,7 @@ func TestBoundedPNCounterCompare(t *testing.T) {
 		// Add random amounts to both positive and negative counts of `b`
 		// (You may need to adapt this based on your actual implementation)
 		// Example:
-		for nodeID := range a.positiveCount {
+		for nodeID := range a.PositiveCount {
 			additionalAmount1 := uint32(1)
 			additionalAmount2 := uint32(2)
 			b.Increment(nodeID, additionalAmount1)
@@ -643,8 +644,8 @@ func TestBoundedPNCounterOverflow(t *testing.T) {
 		counter.Increment(nodeID.String(), amount)
 
 		// Check if value is either u32::MAX or wrapped around
-		require.True(t, counter.positiveCount[nodeID.String()] == uint32(^uint32(0)) ||
-			counter.positiveCount[nodeID.String()] < uint32(^uint32(0)))
+		require.True(t, counter.PositiveCount[nodeID.String()] == uint32(^uint32(0)) ||
+			counter.PositiveCount[nodeID.String()] < uint32(^uint32(0)))
 	}
 }
 
@@ -1080,9 +1081,9 @@ func TestShoppingListAddUpdateRemove(t *testing.T) {
 		}
 
 		//check if original list is unchanged
-		if !(!equalItemsMap(a.items, aOriginal.items) &&
-			equalContextItems(a.awSet.Context, aOriginal.awSet.Context) &&
-			!equalItems(a.awSet.State, aOriginal.awSet.State)) {
+		if !(!equalItemsMap(a.Items, aOriginal.Items) &&
+			equalContextItems(a.AwSet.Context, aOriginal.AwSet.Context) &&
+			!equalItems(a.AwSet.State, aOriginal.AwSet.State)) {
 
 			t.Errorf("Test failed on iteration %d. Shopping lists are not equal.", i)
 		}
@@ -1178,9 +1179,9 @@ func equalItemsMap(a, b map[string]*BoundedPNCounter) bool {
 
 // equalShoppingList checks if two ShoppingLists are equal in terms of items, state, and context.
 func equalShoppingList(a, b *ShoppingList) bool {
-	return equalItemsMap(a.items, b.items) &&
-		equalItems(a.awSet.State, b.awSet.State) &&
-		equalContextItems(a.awSet.Context, b.awSet.Context)
+	return equalItemsMap(a.Items, b.Items) &&
+		equalItems(a.AwSet.State, b.AwSet.State) &&
+		equalContextItems(a.AwSet.Context, b.AwSet.Context)
 }
 
 // Utility function to generate a random string
