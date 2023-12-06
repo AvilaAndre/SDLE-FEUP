@@ -7,7 +7,14 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"sdle.com/mod/crdt_go"
 )
+
+type ShoppingListOperation struct {
+	ListId  string                `json:"list_id"`
+	Content *crdt_go.ShoppingList `json:"content"`
+}
 
 func SendGetRequest(address string, port string, path string) (*http.Response, error) {
 	requestURL := fmt.Sprintf("http://%s:%s%s", address, port, path)
@@ -72,6 +79,8 @@ func DecodeRequestBody[T any](w http.ResponseWriter, body io.ReadCloser, data T)
 	err := json.NewDecoder(body).Decode(&data)
 
 	if err != nil {
+		fmt.Println("the error is", err)
+
 		FailedToDecodeJSON(w)
 		return false, data
 	} else {

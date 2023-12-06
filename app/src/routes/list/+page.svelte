@@ -4,9 +4,11 @@
     import UploadIcon from "$lib/icons/UploadIcon.svelte";
     import DownloadIcon from "$lib/icons/DownloadIcon.svelte";
     import PublishIcon from "$lib/icons/PublishIcon.svelte";
-    import type { ShoppingListData } from "$lib/types";
+    import type { ListItemInfo, ShoppingListData } from "$lib/types";
     import { invoke } from "@tauri-apps/api/tauri";
     import { openTab } from "$lib/writables/listTabs";
+    import ListItem from "$lib/components/ListItem.svelte";
+    import { typewatch } from "../../utils/typewatch";
 
     export let data: ShoppingListData;
 
@@ -15,7 +17,6 @@
 
     let lastUpdate: number = 20;
 
-    let published: boolean = false;
     let hasDataToUpdate: boolean = true;
 
     const syncShoppingList = () => {
@@ -25,10 +26,16 @@
         if (hasDataToUpdate) hasDataToUpdate = false;
     };
 
-    const publishShoppingList = () => {
-        // TODO: Publish Shopping list logic
-        published = true;
-        console.log("published");
+    const publishShoppingList = async () => {
+        await invoke("publish_list", {
+            listId: data.list_info.list_id,
+        })
+            .then((value: any) => {
+                if (value) data.list_info.shared = true;
+            })
+            .catch((err) => {
+                console.log("error", err);
+            });
     };
 
     const uploadShoppingList = () => {
@@ -50,22 +57,27 @@
         nextItemValue = nextItemValue.trim();
         if (nextItemValue === "") return;
 
+        console.log("nextItemValue", nextItemValue);
+
         await invoke("add_item_to_list", {
             listId: data.list_info.list_id,
             name: nextItemValue,
             qtd: 1,
-        }).then((value: any) => {
-            if (value) {
-                data.items.push({
-                    id: 0,
-                    name: nextItemValue,
-                    list_id: data.list_info.list_id,
-                    qtd: 1,
-                });
-                // to activate svelte's reactivity
-                data.items = data.items;
-            }
-        });
+        })
+            .then((value: any) => {
+                if (value) {
+                    data.items.push({
+                        name: nextItemValue,
+                        checked: false,
+                        qtd: 1,
+                    });
+                    // to activate svelte's reactivity
+                    data.items = data.items;
+                }
+            })
+            .catch((err) => {
+                console.log("error", err);
+            });
 
         nextItemValue = "";
     };
@@ -80,13 +92,25 @@
         });
     };
 
-    var typewatch = (function () {
-        var timer = 0;
-        return function (callback: TimerHandler, ms: number | undefined) {
-            clearTimeout(timer);
-            timer = setTimeout(callback, ms);
-        };
-    })();
+    const updateItemCounter = async (
+        item: ListItemInfo
+    ): Promise<ListItemInfo> => {
+        await invoke("update_list_item", {
+            listId: data.list_info.list_id,
+            listItem: item.name,
+            counter: item.qtd,
+            checked: item.checked,
+        })
+            .then((value) => {
+                item.checked = value.checked;
+                item.qtd = value.counter;
+            })
+            .catch((error) => {
+                console.log(error);
+            });
+
+        return item;
+    };
 
     openTab(data.list_info.title, "/list?id=" + data.list_info.list_id);
 </script>
@@ -101,7 +125,7 @@
         class="bg-white px-3 mb-6 w-full h-8 grid grid-flow-row grid-cols-[1fr_0.5fr_1fr] items-center py-2 fixed"
     >
         <div>
-            {#if !published}
+            {#if !data.list_info.shared}
                 <p>Nothing here yet</p>
             {:else}
                 <button
@@ -120,7 +144,7 @@
             </h3>
         </div>
         <div class="flex flex-row justify-end">
-            {#if !published}
+            {#if !data.list_info.shared}
                 <button
                     type="button"
                     on:click={publishShoppingList}
@@ -130,7 +154,7 @@
                     <p>Publish</p>
                 </button>
             {/if}
-            {#if published}
+            {#if data.list_info.shared}
                 <div class="inline-flex gap-1 items-center">
                     <p>
                         Last updated {lastUpdate} minutes ago
@@ -172,22 +196,20 @@
                     }, 1000)}
                 class="text-5xl hidden-placeholder focus-visible:outline-none"
             />
-            {#if data.list_info.share_id}
+            {#if data.list_info.list_id}
                 <h4 class="text-sm text-slate-700 pl-1">
-                    {data.list_info.share_id}
+                    {data.list_info.list_id}
                 </h4>
             {/if}
         </div>
         <br />
-        <ul>
+        <ul class="flex flex-col gap-y-1">
             {#each data.items as item}
-                <li class="w-full group">
-                    <div
-                        class="text-lg w-[36rem] mx-auto p-1 pl-2 group-hover:bg-gray-100 hover:cursor-pointer break-words"
-                    >
-                        {item.name}
-                    </div>
-                </li>
+                <ListItem
+                    bind:item
+                    on:update={async () =>
+                        (item = await updateItemCounter(item))}
+                />
             {/each}
             <button
                 type="button"

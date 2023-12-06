@@ -43,7 +43,7 @@ func main() {
 	log.Printf("Node starting... %s:%s", serverHostname, serverPort)
 
 	ring.Initialize()
-	database.initialize()
+	database.initialize(serverHostname, serverPort)
 
 	if loadBalancerAddress != "" && loadBalancerPort != "" {
 		ownData := make(map[string]string)

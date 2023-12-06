@@ -1,15 +1,30 @@
 export type ListInfo = {
-    list_id: number;
+    list_id: string;
     title: string;
-    share_id: String | undefined;
     shared: Boolean;
 };
 
+export type AWSet = {
+    context: [[]];
+    state: [[]];
+};
+
+export type CRDT = {
+    awset: AWSet;
+    items: Object;
+    node_id: string;
+};
+
+export type CRDTShoppingListData = {
+    list_info: ListInfo;
+    crdt: CRDT;
+    items_checked: Object;
+};
+
 export type ListItemInfo = {
-    id: number;
-    list_id: number;
     name: string;
     qtd: number;
+    checked: boolean;
 };
 
 export type ShoppingListData = {

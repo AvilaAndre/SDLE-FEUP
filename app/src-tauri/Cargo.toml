@@ -21,6 +21,7 @@ tauri = { version = "1.5.2", features = [] }
 unqlite = "1.5.0"
 rand = "0.8.5"
 rusqlite = "0.29.0"
+reqwest = { version = "0.11.22", features = ["blocking", "json"] }
 
 
 [dependencies.uuid]

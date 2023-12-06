@@ -30,16 +30,13 @@ pub trait Operation {
         reason_if_store_fails: &'static str,
     ) -> Result<bool, &'static str>;
 
-
     fn store_user(
         &self,
-        node_id: String, 
-        user: User, 
-        reason_if_store_fails: &'static str ) -> Result<bool, &'static str>;
-    fn get_user(
-        &self,
         node_id: String,
-    ) -> Result<User, &'static str>;
+        user: User,
+        reason_if_store_fails: &'static str,
+    ) -> Result<bool, &'static str>;
+    fn get_user(&self, node_id: String) -> Result<User, &'static str>;
 
     fn get_list(&self, id: String) -> Result<ShoppingListData, &'static str>;
 
@@ -69,11 +66,11 @@ impl Operation for UnQLite {
     }
 
     fn store_user(
-        &self, 
-        node_id: String, 
-        user: User, 
-        reason_if_store_fails: &'static str
-    )-> Result<bool, &'static str> {
+        &self,
+        node_id: String,
+        user: User,
+        reason_if_store_fails: &'static str,
+    ) -> Result<bool, &'static str> {
         let serialized_user: String = unwrap_or_return!(user.serialize_to_string());
 
         unwrap_or_return_with!(
@@ -85,7 +82,7 @@ impl Operation for UnQLite {
         return Ok(true);
     }
 
-    fn get_user(&self, node_id: String) -> Result<User, &'static str>{
+    fn get_user(&self, node_id: String) -> Result<User, &'static str> {
         let result: Vec<u8> = unwrap_or_return_with!(
             self.kv_fetch(node_id),
             Err("Failed to find list with the given id")
@@ -94,7 +91,8 @@ impl Operation for UnQLite {
         return User::deserialize_from_slice(result);
     }
 
-    fn get_list(&self, id: String) -> Result<ShoppingListData, &'static str> { //Adapt for the new type of id for the lists
+    fn get_list(&self, id: String) -> Result<ShoppingListData, &'static str> {
+        //Adapt for the new type of id for the lists
         let result: Vec<u8> = unwrap_or_return_with!(
             self.kv_fetch(id),
             Err("Failed to find list with the given id")
