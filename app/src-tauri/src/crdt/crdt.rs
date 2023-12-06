@@ -195,7 +195,7 @@ pub mod crdt {
             .cloned()
             .collect()
         }
-
+sim 
         pub fn merge(&mut self, inc_awset: &AWSet){
 
             //Intersection between states of two AWSets
@@ -1160,9 +1160,9 @@ mod property_shopping_list_tests {
             a.remove_item(item1.clone());
             prop_assert!(!a.get_items().contains(&item1));
 
-            
+            //TODO: we don need if else anymore !
             //Invariants: 
-            //For cases, where a only have maximum one item that is removed, needs to be always different from original_list: this is our invariant
+            //For cases, where only have maximum one item that is removed, needs to be always different from original_list: this is our invariant
             if a.awset.state.is_empty(){
                 prop_assert_ne!(a.awset.state, original_list.awset.state);
                 prop_assert_eq!(a.awset.context, original_list.awset.context); // only the context stays equal
