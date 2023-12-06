@@ -156,22 +156,11 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 	 */
 	case http.MethodPut:
 		{
-			var crdtJSONString string
-
-			crdtDecoded, crdtJSONString := protocol.DecodeRequestBody(w, r.Body, crdtJSONString)
-
-			if !crdtDecoded {
-				// The DecodeRequestBody method already sets the right headers
-				return
-			}
-
 			var target protocol.ShoppingListOperation
 
-			crdtErr := json.Unmarshal([]byte(crdtJSONString), &target)
+			decoded, target := protocol.DecodeRequestBody(w, r.Body, target)
 
-			if crdtErr != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte("Failed to unmarshall CRDT"))
+			if !decoded {
 				return
 			}
 
