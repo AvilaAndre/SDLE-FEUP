@@ -20,8 +20,6 @@
     let nextItem: any;
     let nextItemValue: string;
 
-    let lastUpdate: number = 20;
-
     let synchronizingList: boolean = false;
 
     let uploadingList: boolean = false;
@@ -206,9 +204,6 @@
                 </button>
             {:else}
                 <div class="inline-flex gap-1 items-center">
-                    <p class="text-sm text-gray-600">
-                        Last updated {lastUpdate} minutes ago
-                    </p>
                     <button
                         type="button"
                         on:click={syncShoppingList}
