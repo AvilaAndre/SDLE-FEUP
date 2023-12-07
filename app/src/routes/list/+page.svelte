@@ -21,31 +21,34 @@
 
     let lastUpdate: number = 20;
 
-    let hasDataToUpdate: boolean = false;
-
     let synchronizingList: boolean = false;
+
+    let uploadingList: boolean = false;
 
     let publishing: boolean = false;
 
     const syncShoppingList = () => {
-        if (hasDataToUpdate) return;
-        hasDataToUpdate = true;
+        if (synchronizingList) return;
+        synchronizingList = true;
 
         invoke("sync_list", { listId: data.list_info.list_id })
             .then((value) => {
                 if (true) {
-                    goto("/list?id=" + data.list_info.list_id);
+                    invoke("get_shopping_list", { id: data.list_info.list_id })
+                        .then((value: any) => {
+                            data = crdtToShoppingList(value);
+                            lastUpdate = 0;
+                        })
+                        .catch((value: String) => {
+                            console.log(
+                                "failed to retrive list in order to update page:",
+                                value
+                            );
+                        });
                 }
-                invoke("get_shopping_list", { id: data.list_info.list_id })
-                    .then((value: any) => {
-                        data = crdtToShoppingList(value);
-                    })
-                    .catch((value: String) => {
-                        console.log(value);
-                    });
             })
             .catch((reason) => console.log("failed to sync:", reason))
-            .finally(() => (hasDataToUpdate = false));
+            .finally(() => (synchronizingList = false));
     };
 
     const publishShoppingList = async () => {
@@ -67,8 +70,16 @@
     };
 
     const uploadShoppingList = () => {
-        // TODO: Upload Shopping List logic
-        console.log("upload");
+        if (uploadingList) return;
+        uploadingList = true;
+
+        // There is no difference between upload and publish yet
+        invoke("publish_list", { listId: data.list_info.list_id })
+            .then((value) => {
+                console.log("upload success:", value);
+            })
+            .catch((reason) => console.log("failed to upload:", reason))
+            .finally(() => (uploadingList = false));
     };
 
     const shareShoppingList = () => {
@@ -202,7 +213,7 @@
                         on:click={syncShoppingList}
                         class="flex flex-row items-center bg-transparent hover:bg-gray-300 transition-colors p-1 rounded-sm"
                     >
-                        {#if hasDataToUpdate}
+                        {#if synchronizingList}
                             <SyncIcon className="w-6 animate-spin" />
                         {:else}
                             <DownloadIcon className="w-6" />
@@ -213,9 +224,12 @@
                         type="button"
                         on:click={uploadShoppingList}
                         class="flex flex-row items-center bg-transparent transition-colors p-1 rounded-sm hover:bg-gray-300 disabled:opacity-50 disabled:bg-gray-300"
-                        disabled
                     >
-                        <UploadIcon className="w-6" />
+                        {#if uploadingList}
+                            <SyncIcon className="w-6 animate-spin" />
+                        {:else}
+                            <UploadIcon className="w-6" />
+                        {/if}
                     </button>
                 </div>
             {/if}
