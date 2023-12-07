@@ -36,7 +36,6 @@
                     invoke("get_shopping_list", { id: data.list_info.list_id })
                         .then((value: any) => {
                             data = crdtToShoppingList(value);
-                            lastUpdate = 0;
                         })
                         .catch((value: String) => {
                             console.log(
@@ -81,11 +80,6 @@
             .finally(() => (uploadingList = false));
     };
 
-    const shareShoppingList = () => {
-        // TODO: Share Shopping List logic
-        console.log("share");
-    };
-
     const deleteShoppingList = async () => {
         invoke("delete_list", { listId: data.list_info.list_id })
             .then((value) => {
@@ -106,6 +100,17 @@
     const addNewItem = async () => {
         nextItemValue = nextItemValue.trim();
         if (nextItemValue === "") return;
+
+        // check if new item already exists
+        for (let index = 0; index < data.items.length; index++) {
+            const item: ListItemInfo = data.items[index];
+
+            if (item.name == nextItemValue) {
+                console.log("repeated");
+                // TODO: User warnings
+                return;
+            }
+        }
 
         await invoke("add_item_to_list", {
             listId: data.list_info.list_id,
