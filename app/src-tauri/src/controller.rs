@@ -357,3 +357,84 @@ pub fn join_list(list_id: String, db: &UnQLite) -> Result<String, &'static str> 
         }
     }
 }
+
+pub fn sync_list(list_id: String, db: &UnQLite) -> Result<String, &'static str> {
+    #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+    struct List {
+        list_id: String,
+    }
+
+    let request_url = "http://localhost:9988/list";
+    let response = unwrap_or_return_with!(
+        Client::new()
+            .post(request_url)
+            .json(&json!(&List {
+                list_id: list_id.clone(),
+            }))
+            .send(),
+        Err("Failed to make request")
+    );
+
+    let status = response.status();
+
+    if status.is_success() {
+        #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+        struct ShoppingListReceived {
+            pub node_id: Uuid,
+            pub items: Option<HashMap<String, BoundedPNCounterv2>>,
+            pub awset: Option<AWSet>,
+        }
+
+        #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+        struct ListReceived {
+            content: ShoppingListReceived,
+            list_id: String,
+        }
+
+        // convert new json data to object
+        let res = match response.json::<ListReceived>() {
+            Ok(list) => list,
+            Err(_) => {
+                return Err("failed to read received list");
+            }
+        };
+
+        let res_list: ShoppingList = ShoppingList {
+            node_id: res.content.node_id,
+            items: match res.content.items {
+                None => HashMap::new(),
+                Some(items) => items,
+            },
+            awset: match res.content.awset {
+                None => AWSet::new(),
+                Some(set) => set,
+            },
+        };
+
+        let list_id: String = res.list_id;
+
+        // Create new local list
+        let mut existing_list: ShoppingListData = unwrap_or_return!(db.get_list(list_id.clone()));
+
+        existing_list.crdt.merge(&res_list);
+
+        // Store new list locally
+        let success: bool = unwrap_or_return!(db.store(
+            list_id.clone(),
+            existing_list,
+            "failed to store updated shopping list"
+        ));
+
+        if success {
+            Ok(list_id)
+        } else {
+            Err("failed to store updated shopping list")
+        }
+    } else {
+        if response.status().is_redirection() {
+            Err("failed to find the requested list")
+        } else {
+            Err("communication with the server failed")
+        }
+    }
+}

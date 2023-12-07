@@ -11,6 +11,8 @@
     import ListItem from "$lib/components/ListItem.svelte";
     import { typewatch } from "../../utils/typewatch";
     import { error } from "@sveltejs/kit";
+    import { goto } from "$app/navigation";
+    import { crdtToShoppingList } from "$lib/crdt/translator";
 
     export let data: ShoppingListData;
 
@@ -19,15 +21,31 @@
 
     let lastUpdate: number = 20;
 
-    let hasDataToUpdate: boolean = true;
+    let hasDataToUpdate: boolean = false;
+
+    let synchronizingList: boolean = false;
 
     let publishing: boolean = false;
 
     const syncShoppingList = () => {
-        // TODO: Sync Shopping List logic
-        console.log("sync");
+        if (hasDataToUpdate) return;
+        hasDataToUpdate = true;
 
-        if (hasDataToUpdate) hasDataToUpdate = false;
+        invoke("sync_list", { listId: data.list_info.list_id })
+            .then((value) => {
+                if (true) {
+                    goto("/list?id=" + data.list_info.list_id);
+                }
+                invoke("get_shopping_list", { id: data.list_info.list_id })
+                    .then((value: any) => {
+                        data = crdtToShoppingList(value);
+                    })
+                    .catch((value: String) => {
+                        console.log(value);
+                    });
+            })
+            .catch((reason) => console.log("failed to sync:", reason))
+            .finally(() => (hasDataToUpdate = false));
     };
 
     const publishShoppingList = async () => {
@@ -185,9 +203,9 @@
                         class="flex flex-row items-center bg-transparent hover:bg-gray-300 transition-colors p-1 rounded-sm"
                     >
                         {#if hasDataToUpdate}
-                            <DownloadIcon className="w-6" />
-                        {:else}
                             <SyncIcon className="w-6 animate-spin" />
+                        {:else}
+                            <DownloadIcon className="w-6" />
                         {/if}
                     </button>
 
