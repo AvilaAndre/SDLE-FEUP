@@ -112,6 +112,8 @@ func (db *DatabaseInstance) storeValue(key []byte, value []byte) bool {
 		return false
 	}
 
+	db.lock.Unlock()
+
 	return true
 }
 
