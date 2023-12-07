@@ -18,8 +18,6 @@ func startServerAndJoinCluster(serverPort string, loadBalancerAddress string, lo
 
 	go startServer(serverPort, serverRunning)
 
-	// FIXME: Should I wait for the server to start?
-
 	go joinCluster(loadBalancerAddress, loadBalancerPort, ownData)
 
 	<-serverRunning // waits for the server to close

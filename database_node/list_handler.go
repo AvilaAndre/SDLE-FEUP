@@ -47,7 +47,6 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 			// Scrambles N first healthy replicas so a quorum can be performed for this key
 			rand.Shuffle(min(len(healthyNodes), replicationFactor), func(i, j int) { healthyNodes[i], healthyNodes[j] = healthyNodes[j], healthyNodes[i] })
 
-			// FIXME: if a node shouldn't have a replica, I should not read from it
 			for i := 0; i < len(healthyNodes); i++ {
 				healthyNodesStack.Push(healthyNodes[i])
 			}
