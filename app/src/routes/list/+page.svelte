@@ -10,11 +10,12 @@
     import { closeTab, openTab } from "$lib/writables/listTabs";
     import ListItem from "$lib/components/ListItem.svelte";
     import { typewatch } from "../../utils/typewatch";
-    import { error } from "@sveltejs/kit";
-    import { goto } from "$app/navigation";
     import { crdtToShoppingList } from "$lib/crdt/translator";
+    import { list } from "postcss";
 
     export let data: ShoppingListData;
+
+    let shareIdElement: any;
 
     let nextItem: any;
     let nextItemValue: string;
@@ -250,9 +251,27 @@
                 class="text-5xl hidden-placeholder focus-visible:outline-none"
             />
             {#if data.list_info.list_id}
-                <h4 class="text-sm text-slate-700 pl-1">
-                    {data.list_info.list_id}
-                </h4>
+                <span class="inline-flex gap-2">
+                    <h4 class="text-sm text-slate-700 pl-1">
+                        {data.list_info.list_id}
+                    </h4>
+
+                    <button
+                        on:click={() => {
+                            shareIdElement.select();
+                            document.execCommand("copy");
+                        }}
+                    >
+                        <ShareIcon className="w-4" />
+                    </button>
+                    <input
+                        type="text"
+                        class="w-1 opacity-0"
+                        bind:this={shareIdElement}
+                        value={data.list_info.list_id}
+                        disabled
+                    />
+                </span>
             {/if}
         </div>
         <br />
