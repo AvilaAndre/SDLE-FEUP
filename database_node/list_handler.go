@@ -117,12 +117,13 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 
 			if len(readsContent) > 0 {
 				// Merge every read
-
-				// TODO: important, merge all contents
 				var finalCRDT *crdt_go.ShoppingList = readsContent[0]
 
-				// After merging
+				for i := 1; i < len(readsContent); i++ {
+					finalCRDT.Merge(readsContent[i])
+				}
 
+				// After merging
 				w.WriteHeader(http.StatusOK)
 				w.Header().Set("Content-Type", "application/json")
 				jsonResp, err := json.Marshal(protocol.ShoppingListOperation{ListId: listId, Content: finalCRDT})
