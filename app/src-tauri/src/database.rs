@@ -131,6 +131,8 @@ impl Operation for UnQLite {
         if self.kv_delete(id).is_err() {
             return Err("failed to delete list");
         }
+
+        let _ = self.commit();
         return Ok(true);
     }
 }

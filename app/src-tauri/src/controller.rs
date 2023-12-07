@@ -1,3 +1,5 @@
+use crate::crdt::crdt::crdt::AWSet;
+use crate::crdt::crdt::crdt::BoundedPNCounterv2;
 use crate::crdt::crdt::crdt::ShoppingList;
 use crate::database::*;
 use crate::macros::*;
@@ -209,7 +211,6 @@ pub fn delete_list(list_id: String, db: &UnQLite) -> Result<bool, &'static str> 
  *  Update an item quantity to 0 when a user locally check an item as complete
  * */
 pub fn item_check(list_id: String, item_name: String, db: &UnQLite) -> Result<bool, &'static str> {
-    //TODO: test and do the frontend checkbox
     let mut list: ShoppingListData = unwrap_or_return!(db.get_list(list_id.clone()));
     //put item quantity to 0
     let reset_decrement = match list.crdt.items.get(&item_name) {
@@ -282,28 +283,49 @@ pub fn join_list(list_id: String, db: &UnQLite) -> Result<String, &'static str> 
 
     if status.is_success() {
         #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+        struct ShoppingListReceived {
+            pub node_id: Uuid,
+            pub items: Option<HashMap<String, BoundedPNCounterv2>>,
+            pub awset: Option<AWSet>,
+        }
+
+        #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
         struct ListReceived {
-            content: ShoppingList,
+            content: ShoppingListReceived,
             list_id: String,
         }
 
         // convert new json data to object
-        let res: ListReceived = unwrap_or_return_with!(
-            response.json::<ListReceived>(),
-            Err("failed to read received list")
-        );
+        let res = match response.json::<ListReceived>() {
+            Ok(list) => list,
+            Err(_) => {
+                return Err("failed to read received list");
+            }
+        };
+
+        let res_list: ShoppingList = ShoppingList {
+            node_id: res.content.node_id,
+            items: match res.content.items {
+                None => HashMap::new(),
+                Some(items) => items,
+            },
+            awset: match res.content.awset {
+                None => AWSet::new(),
+                Some(set) => set,
+            },
+        };
 
         let list_id: String = res.list_id;
 
         // Check if this list already existed
-        if db.get_list(list_id.clone()).is_err() {
+        if !db.get_list(list_id.clone()).is_err() {
             return Err("list already imported");
         }
 
         // Create new local list
         let mut new_list_crdt: ShoppingList = ShoppingList::new_v2(Uuid::new_v4());
 
-        new_list_crdt.merge(&res.content);
+        new_list_crdt.merge(&res_list);
 
         let new_list: ShoppingListData = ShoppingListData {
             list_info: ListInfo {
