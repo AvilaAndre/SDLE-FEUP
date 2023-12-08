@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-
+	"math/rand"
+    "time"
 	hash_ring "sdle.com/mod/hash_ring"
 	"sdle.com/mod/utils"
 )
@@ -19,6 +20,7 @@ var database DatabaseInstance
 const replicationFactor int = 5
 
 func main() {
+	rand.Seed(time.Now().UnixNano()) // for the anti-entropy random shuffle of nodes
 
 	var loadBalancerAddress string = ""
 	var loadBalancerPort string = ""

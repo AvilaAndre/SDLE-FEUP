@@ -1,5 +1,5 @@
 package hash_ring
-
+// TODO: in practice we use should use k ≈ log2(num_items) to obtain reasonably balanced loads for storing a total of num_items in the entire datastore
 import (
 	"crypto/md5"
 	"fmt"
@@ -54,7 +54,7 @@ type HashRing struct {
 func (ring *HashRing) Initialize() {
 	ring.vnodes = &utils.AVLTree{}
 	ring.nodes = make(map[string]*NodeInfo)
-	ring.ReplicationFactor = 1
+	ring.ReplicationFactor = 1 //TODO: change this for at least two?
 }
 
 /**

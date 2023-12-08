@@ -494,7 +494,7 @@ func NewShoppingList() *ShoppingList {
 func generateNodeID() string {
 	return uuid.New().String()
 }
-
+// Use boolean and u32 like in the Rust version ?
 // AddOrUpdateItem adds or updates an item in the shopping list.
 func (l *ShoppingList) AddOrUpdateItem(itemName string, quantityChange int) {
 

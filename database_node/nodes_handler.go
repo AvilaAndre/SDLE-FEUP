@@ -81,10 +81,57 @@ func handleGossip(w http.ResponseWriter, r *http.Request) {
 		if !decoded {
 			return
 		}
+		
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("This node is operating normally"))
+	}
+}
+
+// This responds and deals with the first pull-push request for anti-entropy mechanism
+func handleGossipAntiEntropyRequest(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	/**
+	 * Upon receiving this message, the node needs to answer the incoming gossip anti-entropy pull
+	 with the lists he have in common with the sender and have a different hash for the awsets for those lists
+	 */
+	case http.MethodPost:
+		target := make(map[string][]map[string]string)
+
+		decoded, target := protocol.DecodeRequestBody(w, r.Body, target)
+
+		if !decoded {
+			return
+		}
+		
+		//
+
+
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("This node is operating normally"))
+		w.Write([]byte("This node will answer the anti-entropy pull"))
+	}
+}
+//This deals with the second phase of the pull-push anti-entropy mechanism
+func handleAntiEntropyResponse(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	/**
+	 * Upon receiving this message, the node needs  to send the asked shoppingLists and merge the common ShoppingLists sended in gossipAntiEntropy first request
+	 */
+	case http.MethodPut:
+		target := make(map[string][]map[string]string)
+
+		decoded, target := protocol.DecodeRequestBody(w, r.Body, target)
+
+		if !decoded {
+			return
+		}
 
 		ring.CheckForNewNodes(target["nodes"], serverHostname, serverPort)
 
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("This node is operating normally"))
+		w.Write([]byte("This node is will answer the anti-entropy pull"))
 	}
 }
