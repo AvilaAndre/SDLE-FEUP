@@ -47,7 +47,6 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 			// Scrambles N first healthy replicas so a quorum can be performed for this key
 			rand.Shuffle(min(len(healthyNodes), replicationFactor), func(i, j int) { healthyNodes[i], healthyNodes[j] = healthyNodes[j], healthyNodes[i] })
 
-			// FIXME: if a node shouldn't have a replica, I should not read from it
 			for i := 0; i < len(healthyNodes); i++ {
 				healthyNodesStack.Push(healthyNodes[i])
 			}
@@ -117,12 +116,13 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 
 			if len(readsContent) > 0 {
 				// Merge every read
-
-				// TODO: important, merge all contents
 				var finalCRDT *crdt_go.ShoppingList = readsContent[0]
 
-				// After merging
+				for i := 1; i < len(readsContent); i++ {
+					finalCRDT.Merge(readsContent[i])
+				}
 
+				// After merging
 				w.WriteHeader(http.StatusOK)
 				w.Header().Set("Content-Type", "application/json")
 				jsonResp, err := json.Marshal(protocol.ShoppingListOperation{ListId: listId, Content: finalCRDT})
@@ -156,22 +156,11 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 	 */
 	case http.MethodPut:
 		{
-			var crdtJSONString string
-
-			crdtDecoded, crdtJSONString := protocol.DecodeRequestBody(w, r.Body, crdtJSONString)
-
-			if !crdtDecoded {
-				// The DecodeRequestBody method already sets the right headers
-				return
-			}
-
 			var target protocol.ShoppingListOperation
 
-			crdtErr := json.Unmarshal([]byte(crdtJSONString), &target)
+			decoded, target := protocol.DecodeRequestBody(w, r.Body, target)
 
-			if crdtErr != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte("Failed to unmarshall CRDT"))
+			if !decoded {
 				return
 			}
 

@@ -6,7 +6,7 @@
 </script>
 
 <div class="app">
-    <section class="bg-gray-200 w-screen h-12 fixed">
+    <section class="bg-gray-200 w-screen h-12 fixed z-20">
         <Tabs bind:tabs={$tabsList} />
     </section>
     <div class="h-12" />

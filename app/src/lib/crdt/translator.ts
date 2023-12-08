@@ -12,7 +12,7 @@ export const crdtToShoppingList = (
     shoppingList.list_info = crdt.list_info;
     shoppingList.items = [];
 
-    console.log(crdt.items_checked); // TODO: implement checked
+    // TODO: implement checked
 
     Object.entries(crdt.crdt.items).forEach(([key, value]) => {
         let item: ListItemInfo = Object();

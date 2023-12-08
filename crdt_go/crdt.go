@@ -477,8 +477,8 @@ func (s *AWSet) Merge(incAWSet *AWSet) {
 // ShoppingList represents a shopping list with CRDT support.
 type ShoppingList struct {
 	NodeID string                       `json:"node_id"`
-	Items  map[string]*BoundedPNCounter `json:"items,omitempty"`
-	AwSet  *AWSet                       `json:"awset,omitempty"`
+	Items  map[string]*BoundedPNCounter `json:"items"`
+	AwSet  *AWSet                       `json:"awset"`
 }
 
 // NewShoppingList creates a new ShoppingList.

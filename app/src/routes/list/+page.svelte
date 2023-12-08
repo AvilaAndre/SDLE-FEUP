@@ -4,48 +4,92 @@
     import UploadIcon from "$lib/icons/UploadIcon.svelte";
     import DownloadIcon from "$lib/icons/DownloadIcon.svelte";
     import PublishIcon from "$lib/icons/PublishIcon.svelte";
+    import ProgressWheel from "$lib/icons/ProgressWheel.svelte";
     import type { ListItemInfo, ShoppingListData } from "$lib/types";
     import { invoke } from "@tauri-apps/api/tauri";
-    import { openTab } from "$lib/writables/listTabs";
+    import { closeTab, openTab } from "$lib/writables/listTabs";
     import ListItem from "$lib/components/ListItem.svelte";
     import { typewatch } from "../../utils/typewatch";
+    import { crdtToShoppingList } from "$lib/crdt/translator";
+    import { list } from "postcss";
 
     export let data: ShoppingListData;
+
+    let shareIdElement: any;
 
     let nextItem: any;
     let nextItemValue: string;
 
-    let lastUpdate: number = 20;
+    let synchronizingList: boolean = false;
 
-    let hasDataToUpdate: boolean = true;
+    let uploadingList: boolean = false;
+
+    let publishing: boolean = false;
 
     const syncShoppingList = () => {
-        // TODO: Sync Shopping List logic
-        console.log("sync");
+        if (synchronizingList) return;
+        synchronizingList = true;
 
-        if (hasDataToUpdate) hasDataToUpdate = false;
+        invoke("sync_list", { listId: data.list_info.list_id })
+            .then((value) => {
+                if (true) {
+                    invoke("get_shopping_list", { id: data.list_info.list_id })
+                        .then((value: any) => {
+                            data = crdtToShoppingList(value);
+                        })
+                        .catch((value: String) => {
+                            console.log(
+                                "failed to retrive list in order to update page:",
+                                value
+                            );
+                        });
+                }
+            })
+            .catch((reason) => console.log("failed to sync:", reason))
+            .finally(() => (synchronizingList = false));
     };
 
     const publishShoppingList = async () => {
-        await invoke("publish_list", {
+        if (publishing) return;
+
+        publishing = true;
+
+        invoke("publish_list", {
             listId: data.list_info.list_id,
         })
             .then((value: any) => {
                 if (value) data.list_info.shared = true;
+                publishing = false;
             })
             .catch((err) => {
-                console.log("error", err);
+                console.log("error publishing", err);
+                publishing = false;
             });
     };
 
     const uploadShoppingList = () => {
-        // TODO: Upload Shopping List logic
-        console.log("upload");
+        if (uploadingList) return;
+        uploadingList = true;
+
+        // There is no difference between upload and publish yet
+        invoke("publish_list", { listId: data.list_info.list_id })
+            .then((value) => {
+                console.log("upload success:", value);
+            })
+            .catch((reason) => console.log("failed to upload:", reason))
+            .finally(() => (uploadingList = false));
     };
 
-    const shareShoppingList = () => {
-        // TODO: Share Shopping List logic
-        console.log("share");
+    const deleteShoppingList = async () => {
+        invoke("delete_list", { listId: data.list_info.list_id })
+            .then((value) => {
+                if (value) {
+                    closeTab("/list?id=" + data.list_info.list_id);
+                } else {
+                    console.log("failed to delete list");
+                }
+            })
+            .catch((reason) => console.log("failed to delete list:", reason));
     };
 
     const selectNextItem = () => {
@@ -57,7 +101,16 @@
         nextItemValue = nextItemValue.trim();
         if (nextItemValue === "") return;
 
-        console.log("nextItemValue", nextItemValue);
+        // check if new item already exists
+        for (let index = 0; index < data.items.length; index++) {
+            const item: ListItemInfo = data.items[index];
+
+            if (item.name == nextItemValue) {
+                console.log("repeated");
+                // TODO: User warnings
+                return;
+            }
+        }
 
         await invoke("add_item_to_list", {
             listId: data.list_info.list_id,
@@ -83,11 +136,11 @@
     };
 
     const updateListTitle = async () => {
+        if (data.list_info.title == "") return;
         await invoke("update_list_title", {
             listId: data.list_info.list_id,
             title: data.list_info.title,
         }).then((value: any) => {
-            // TODO: if not value then the list title did not update
             openTab(data.list_info.title, "/list?id=" + data.list_info.list_id);
         });
     };
@@ -122,21 +175,17 @@
 
 <div class="flex flex-col justify-start items-center w-full">
     <div
-        class="bg-white px-3 mb-6 w-full h-8 grid grid-flow-row grid-cols-[1fr_0.5fr_1fr] items-center py-2 fixed"
+        class="bg-white px-3 mb-6 w-full h-8 grid grid-flow-row grid-cols-[1fr_0.5fr_1fr] items-center py-2 fixed z-10"
     >
         <div>
-            {#if !data.list_info.shared}
-                <p>Nothing here yet</p>
-            {:else}
-                <button
-                    type="button"
-                    on:click={shareShoppingList}
-                    class="flex flex-row items-center bg-transparent hover:bg-gray-300 transition-colors p-1 rounded-sm gap-x-1"
-                >
-                    <ShareIcon className="w-6" />
-                    <p>Share</p>
-                </button>
-            {/if}
+            <button
+                type="button"
+                on:click={deleteShoppingList}
+                class="flex flex-row items-center bg-transparent hover:bg-red-300 transition-colors p-1 px-2 rounded-sm gap-x-1"
+            >
+                <PublishIcon className="w-6" />
+                <p>Delete</p>
+            </button>
         </div>
         <div class="text-center">
             <h3>
@@ -150,24 +199,25 @@
                     on:click={publishShoppingList}
                     class="flex flex-row items-center bg-transparent hover:bg-gray-300 transition-colors p-1 rounded-sm gap-x-1"
                 >
-                    <PublishIcon className="w-6" />
-                    <p>Publish</p>
+                    {#if publishing}
+                        <ProgressWheel className="w-6 animate-spin" />
+                        <p>Publishing...</p>
+                    {:else}
+                        <PublishIcon className="w-6" />
+                        <p>Publish</p>
+                    {/if}
                 </button>
-            {/if}
-            {#if data.list_info.shared}
+            {:else}
                 <div class="inline-flex gap-1 items-center">
-                    <p>
-                        Last updated {lastUpdate} minutes ago
-                    </p>
                     <button
                         type="button"
                         on:click={syncShoppingList}
                         class="flex flex-row items-center bg-transparent hover:bg-gray-300 transition-colors p-1 rounded-sm"
                     >
-                        {#if hasDataToUpdate}
-                            <DownloadIcon className="w-6" />
-                        {:else}
+                        {#if synchronizingList}
                             <SyncIcon className="w-6 animate-spin" />
+                        {:else}
+                            <DownloadIcon className="w-6" />
                         {/if}
                     </button>
 
@@ -175,21 +225,25 @@
                         type="button"
                         on:click={uploadShoppingList}
                         class="flex flex-row items-center bg-transparent transition-colors p-1 rounded-sm hover:bg-gray-300 disabled:opacity-50 disabled:bg-gray-300"
-                        disabled
                     >
-                        <UploadIcon className="w-6" />
+                        {#if uploadingList}
+                            <SyncIcon className="w-6 animate-spin" />
+                        {:else}
+                            <UploadIcon className="w-6" />
+                        {/if}
                     </button>
                 </div>
             {/if}
         </div>
     </div>
-    <div class="h-fit w-full mt-64">
+    <div class="h-fit w-full mt-52">
         <div class="w-[36rem] mx-auto">
             <input
                 type="text"
                 name="ListName"
                 id="listName"
                 bind:value={data.list_info.title}
+                maxlength="24"
                 on:keyup={() =>
                     typewatch(() => {
                         updateListTitle();
@@ -197,9 +251,27 @@
                 class="text-5xl hidden-placeholder focus-visible:outline-none"
             />
             {#if data.list_info.list_id}
-                <h4 class="text-sm text-slate-700 pl-1">
-                    {data.list_info.list_id}
-                </h4>
+                <span class="inline-flex gap-2">
+                    <h4 class="text-sm text-slate-700 pl-1">
+                        {data.list_info.list_id}
+                    </h4>
+
+                    <button
+                        on:click={() => {
+                            shareIdElement.select();
+                            document.execCommand("copy");
+                        }}
+                    >
+                        <ShareIcon className="w-4" />
+                    </button>
+                    <input
+                        type="text"
+                        class="w-1 opacity-0"
+                        bind:this={shareIdElement}
+                        value={data.list_info.list_id}
+                        disabled
+                    />
+                </span>
             {/if}
         </div>
         <br />

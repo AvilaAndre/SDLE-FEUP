@@ -41,6 +41,8 @@ pub trait Operation {
     fn get_list(&self, id: String) -> Result<ShoppingListData, &'static str>;
 
     fn get_all_lists_info(&self) -> Result<Vec<ListInfo>, &'static str>;
+
+    fn delete_list(&self, id: String) -> Result<bool, &'static str>;
 }
 
 impl Operation for UnQLite {
@@ -123,5 +125,14 @@ impl Operation for UnQLite {
         }
 
         Ok(lists)
+    }
+
+    fn delete_list(&self, id: String) -> Result<bool, &'static str> {
+        if self.kv_delete(id).is_err() {
+            return Err("failed to delete list");
+        }
+
+        let _ = self.commit();
+        return Ok(true);
     }
 }
