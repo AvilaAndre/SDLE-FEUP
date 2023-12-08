@@ -20,6 +20,14 @@ type readChanStruct struct {
 	port    string
 }
 
+// We need this to deal with map list_id-> dotContext
+type readChanStructForDotContext struct {
+    code    int
+    content map[string]string 
+    address string
+    port   
+}
+
 func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 	log.Println("Received /list", r.Method, "request")
 
@@ -328,6 +336,39 @@ func sendReadAndWait(address string, port string, payload map[string]string, rea
 		readChan <- readChanStruct{2, nil, address, port}
 	} else {
 		readChan <- readChanStruct{3, nil, address, port}
+	}
+}
+
+/**
+ * Returns 1, 2 or 3
+ * 1 - list_id_dot_contents was found and retrieved
+ * 2 - No list_id_dot_contents was found
+ * 3 - No response or the response is invalid
+ */
+ func sendReadAndWaitDotContext(address string, port string, readChan chan readChanStructForDotContext) {
+	if address == serverHostname && port == serverPort {
+        listsIdDotContents, err := database.GetAllListsIdDotContents()
+
+        if err != nil {
+            
+            readChan <- readChanStructForDotContext{3, nil, address, port}
+            return
+        }
+		// No response or the response is invalid
+        if len(listsIdDotContents) == 0 {
+            // No list_id_dot_contents found
+            readChan <- readChanStructForDotContext{2, nil, address, port}
+            return
+        }
+
+        // Successfully found and retrieved lists_id_dot_contents
+        readChan <- readChanStructForDotContext{1, listsIdDotContents, address, port}
+        return
+    }
+	else{
+		//AntiEntropy The adress and or port used need to be always from the hostNode when dealling with DotContext !!
+		readChan <- readChanStructForDotContext{3, nil, address, port}
+            return
 	}
 }
 

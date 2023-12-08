@@ -30,7 +30,7 @@ func antiEntropyInterval(float32 n) time.Duration {
 
 // Propagate antiEntropy mechanism with a numb_choosen_nodes that a node knows
 func gossipAntiEntropy(numb_choosen_nodes int) {
-
+	//TODO: test the code bellow
 	
 	for {
 		var server_host_node_id string = fmt.Sprintf("%s:%s", serverHostname, serverPort)
@@ -130,74 +130,122 @@ func gossipWith(node *hash_ring.NodeInfo) {
 
 	node.GossipLock.Unlock()
 }
+
+
 //Push-pull gossip dot context ( awset ) anti-entropy mechanism: Pull side
 func gossipAntiEntropyWith(node *hash_ring.NodeInfo, uint32 numb_tries) {
-	if !node.GossipLock.TryLock() {
+	if !node.GossipLock.TryLock() { //TODO: check if this is important to check ?
 		return
 	}
-	//network addresses, ports, etc from all nodes that the current node who call gossipAntiEntropyWith knows
-	// format returned bellow : nodesData["nodes"] = append(nodesData["nodes"], map[string]string{"address": value.Address, "port": value.Port, "status": fmt.Sprintf("%d", value.Status)})
-	antiEntropyGossipMaterial := ring.NodesGossip()//TODO: ask if with this i know the server, port of other nodes because of the gossip backend process that is also running every few seconds !
+	
 
-	jsonData, err := json.Marshal(antiEntropyGossipMaterial)
+	// Here we need to read all list_ids and dot_context for every list and save on a Map
+	read_chan_with_dot_context := make(chan readChanStructForDotContext)// to receive ShoppingLists from database
+
+	// Get all the list_id_dot_contents Map from the sender/Host node 
+	list_handler.sendReadAndWaitDotContext(serverHostname, serverPort, read_chan_with_dot_context)
+	
+
+	// send all the list_id_dot_contents to node and wait for response
+	//TODO: 
+	response_from_pull, err := protocol.SendRequestWithData(http.MethodPost, node.Address, node.Port, "/gossip/antiEntropy/request/pull", read_chan_with_dot_context)
+	
 	if err != nil {
-		log.Printf("Error happened in JSON marshal. Err: %s", err)
-		node.GossipLock.Unlock()
-		return
-	}
-	//Send JSON of map listsIdsAwsets : list_id -> hash(awset_of_list_list_id) to a given node
-	//TODO: listsIdsAwsets := ownListsIdsHashAwsets ->info on the node who do the gossipAntiEntropyWith
-	//Send also jsonData with the gossipMaterial needed
-	// "/gossip/antiEntropy" indicates to use handleGossipAntiEntropy method on registerRoutes of database_node
-	response, err2 := protocol.SendRequestWithAntiEntropyData(http.MethodPost, node.Address, node.Port, "/gossip/antiEntropy", jsonData, listsIdsHashAwsets)
-	if err2 != nil {
-		// If cannot gossip with anti-entropy message 3 consecutive times then assume the node is dead
-		if node.DeadCounter < numb_tries { //TODO: check this later ?
-			node.DeadCounter++
-		} else if node.DeadCounter == numb_tries { //The basic gossip event will deal Nodes unresponsive
-			node.Status = hash_ring.NODE_UNRESPONSIVE
-			log.Printf("%s set to UNRESPONSIVE when trying anti-entropy mechanism\n", node.Id)
-			node.DeadCounter++
-		}
+        handleCommunicationError(node, numb_tries)
+        return
+    }
 
-		node.GossipLock.Unlock()
-		return
-	}
-
-	// Await for response to get the node's status
-	if response.StatusCode == 200 {
+	// Await for response to get the node's status and shoppingLists to merge that differ with Host node on the dot context
+	if response_from_pull.StatusCode == http.StatusOK  {
 		node.DeadCounter = 0
 		if node.Status != hash_ring.NODE_OK {
 			node.Status = hash_ring.NODE_OK
 			log.Printf("Node %s is OK\n", node.Id)
 			log.Printg("Received anti-entropy data from node %s\n")
 		}
-		// TODO:Continue the anti-entropy Mechanism here or outside in gossip/gossipEntropy function ??
-		
-		//Sending the requested ShoppingLists and possibly updating the received those ShoppingLists
-		//TODO: do the merge with the received ShoppingLists and save the list_id of incoming ShoppingLists in variable list_ids
 
-			// decode the body response and get the shoppingLists
-
-			// create a map: incomingShoppingLists with list_id -> CRDTOfShopping_list_id of the shoppingLists received
-
-			// for the list_ids in the map incomingShoppingLists: get the sender node stored common ShoppingLists
-
-			//merge the incoming_lists with the sender node common lists
-
-			// sender node store the new merged ShoppingLists he have in common with receiver node
-
-			/* sender sends the in common with receiver node the new merged ShoppingLists,  and waits for response.StatusCode 
-			( receiver node then merge the received new merged shoppingLists from sender node) */
-
-
-			// 
-		//TODO: 
-		// Use the newly merged ShoppingLists above and send them to the receiver node
-
-		response2, err3 := protocol.SendRequestWithAntiEntropyData(http.MethodPost, node.Address, node.Port, "/gossip/antiEntropy/response", jsonData, listsIdsHashAwsets)
-	
-	}
+		handleSuccessfulPullPushResponse(node, response_from_pull)
+    } 
+	else {
+        fmt.Println("Non-OK status code received:", response_from_pull.StatusCode)
+    }
 
 	node.GossipLock.Unlock()
+		
+
+	
+}
+
+func handleCommunicationError(node *hash_ring.NodeInfo, numb_tries uint32) {
+    if node.DeadCounter < numb_tries {
+        node.DeadCounter++
+    } else if node.DeadCounter == numb_tries {
+        node.Status = hash_ring.NODE_UNRESPONSIVE
+        log.Printf("%s set to UNRESPONSIVE when trying anti-entropy mechanism\n", node.Id)
+        node.DeadCounter++
+    }
+    node.GossipLock.Unlock()
+}
+
+func handleSuccessfulPullPushResponse(node *hash_ring.NodeInfo, response *http.Response) {
+    differing_lists := make(map[string]*crdt_go.ShoppingList)
+    success, decoded_differingLists := DecodeHTTPResponse(nil, response, differing_lists)
+    if !success {
+        fmt.Println("Error decoding response from anti-entropy pull request")
+        return
+    }
+
+    differing_lists = decoded_differingLists
+    merged_lists := processDifferingLists(differing_lists)
+
+    // Send the merged new shoppingLists to the receiver node that have responded
+    marshaled_merged_lists, err := json.Marshal(merged_lists)
+    if err != nil {
+        fmt.Println("Error marshaling merged lists:", err)
+        return
+    }
+	//TODO: check if i need to retun on err !=nill
+    // Finally we send the merged shoppingLists, requesting a push in the anti-entropy mechanism
+    response_from_push, err := protocol.SendRequestWithData(http.MethodPut, node.Address, node.Port, "/gossip/antiEntropy/response/push", marshaledMergedLists)
+    if err != nil {
+        fmt.Println("Error sending merged lists to receiver node:", err)
+    } else if response_from_push.StatusCode != http.StatusOK {
+        fmt.Println("Non-OK status code received from receiver node during push:", responseFromPush.StatusCode)
+    }
+
+	if response_from_push.StatusCode == http.StatusOK{
+		fmt.Println("AntiEntropy pushpull dot context mechanism totally successful!")
+	} 
+}
+
+func processDifferingLists(differing_lists map[string]*crdt_go.ShoppingList) map[string]*crdt_go.ShoppingList {
+    merged_lists := make(map[string]*crdt_go.ShoppingList)
+    for list_id, common_list := range differing_lists {
+        readChan := make(chan readChanStruct)
+        payload := map[string]string{"list_id": list_id}
+        sendReadAndWait(serverHostname, serverPort, payload, readChan)
+        result := <-readChan
+        
+        if result.code == 1 {
+            local_list := result.content
+            merged_list := localList.Merge(common_list)
+            merged_lists[list_id] = merged_list
+
+            // Store the merged list back into the local node's database
+            storeMergedList(list_id, merged_list)
+        }
+    }
+    return merged_lists
+}
+
+func storeMergedList(list_id string, merged_list *crdt_go.ShoppingList) {
+    merged_list_payload := protocol.ShoppingListOperation{
+        ListId:  list_id,
+        Content: merged_list,
+    }
+    write_chan := make(chan bool)
+    sendWriteAndWait(serverHostname, serverPort, merged_list_payload,write_chan)
+    if success := <-write_chan; !success {
+        fmt.Println("Error storing merged list with ID:", list_id)
+    }
 }

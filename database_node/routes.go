@@ -10,9 +10,7 @@ func registerRoutes() {
 	http.HandleFunc("/operation", handleOperation)
 	http.HandleFunc("/list", handleCoordenator)
 	http.HandleFunc("/gossip", handleGossip)
-	http.HandleFunc("/gossip/antiEntropy/request", handleGossipAntiEntropyRequest)
-	http.HandleFunc("/gossip/antiEntropy/response", handleAntiEntropyResponse)
-	http.HandleFunc("/gossip/antiEntropy/finalStep", handleAntiEntropyFinalStep)
+	http.HandleFunc("/gossip/antiEntropy/request", handleGossipPullAntiEntropyRequest)
 	http.HandleFunc("/node/add", nodeAdd)
 	http.HandleFunc("/ping", getPing)
 }
