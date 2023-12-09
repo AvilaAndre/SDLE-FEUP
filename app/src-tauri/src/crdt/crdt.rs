@@ -305,7 +305,163 @@ pub mod crdt {
             self.awset.elements()
         }
     }
+
+
+
+
+
+
+    // TODO: when everything working on anti-entropy, change this name for ShoppingListCRDTV and the first version to v0, change names on property tests
+    #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+    pub struct ShoppingListCRDTV2 {
+        pub node_id: Uuid,
+        pub needed_items: HashMap<String, BoundedPNCounterv2>,
+        pub purchased_items: HashMap<String, BoundedPNCounterv2>,
+        pub awset: AWSet,
+    }
+
+    impl ShoppingListCRDTV2 {
+        pub fn new() -> Self {
+            ShoppingListCRDTV2 {
+                node_id: Uuid::new_v4(),
+                needed_items: HashMap::new(),
+                purchased_items: HashMap::new(),
+                awset: AWSet::new(),
+            }
+        }
+
+        pub fn new_v2(id: Uuid) -> Self {
+            ShoppingList {
+                node_id: id,
+                needed_items: HashMap::new(),
+                purchased_items: HashMap::new(),
+                awset: AWSet::new(),
+            }
+        }
+
+        // We can increment and decrement the needed items at our will 
+        pub fn add_or_update_needed_item(&mut self, item_name: String, quantity_change: u32, decrement: bool) {
+            if let Some(existing_item) = self.needed_items.get_mut(&item_name) {
+                if quantity_change == 0 {
+                    return;
+                } 
+                else if decrement {
+                    existing_item.decrement(self.node_id, quantity_change);
+                } 
+                else {
+                    existing_item.increment(self.node_id, quantity_change);
+                }
+                self.awset.add_i(item_name.clone(), self.node_id);
+            } 
+            else {
+                //Item doesn't exist on needed Map of items
+
+                let mut new_item = BoundedPNCounterv2::new();
+                if quantity_change == 0 {
+                    self.needed_items.insert(item_name.clone(), new_item);
+                    self.awset.add_i(item_name.clone(), self.node_id);
+                } 
+                else if decrement {
+                    new_item.decrement(self.node_id, quantity_change);
+                    self.needed_items.insert(item_name.clone(), new_item);
+                    self.awset.add_i(item_name.clone(), self.node_id);
+                } 
+                else {
+                    new_item.increment(self.node_id, quantity_change);
+                    self.needed_items.insert(item_name.clone(), new_item);
+                    self.awset.add_i(item_name.clone(), self.node_id);
+                }
+            }
+        }
+
+
+        // When an item is purchased, automatically a needed item quantity is decremented
+        pub fn mark_as_purchased(&mut self, item_name: String, quantity: u32) {
+            // Check if the item exists in needed_items and if the quantity to be moved is valid
+            if let Some(needed_item) = self.needed_items.get_mut(&item_name) {
+            
+                needed_item.decrement(self.node_id, quantity);
+                self.awset.add_i(item_name.clone(), self.node_id);
+
+                // Here we deal with the fact of the item already exists or not in purchased_items 
+                self.purchased_items.entry(item_name.clone())
+                    .and_modify(|item| item.increment(self.node_id, quantity))
+                    .or_insert_with(|| {
+                        let mut new_item = BoundedPNCounterv2::new();
+                        new_item.increment(self.node_id, quantity);
+                        new_item
+                    });
+            }
+        }
+
+
+        // This give the possibility of decrement the purchased and put that on the needed again
+        pub fn mark_as_needed_again(&mut self, item_name: String, quantity: u32) {
+            
+            // Check if the item exists in purchased_items and if the quantity to be moved is valid
+            if let Some(purchased_item) = self.purchased_items.get_mut(&item_name) {
+                
+                purchased_item.decrement(self.node_id, quantity);
+
+                self.needed_items.entry(item_name.clone())
+                    .and_modify(|item| item.increment(self.node_id, quantity))
+                    .or_insert_with(|| {
+                        let mut new_item = BoundedPNCounterv2::new();
+                        new_item.increment(self.node_id, quantity);
+                        new_item
+                    });
+            }
+            self.awset.add_i(item_name.clone(), self.node_id);
+        }
+
+        pub fn remove_item(&mut self, item_name: String) {
+
+            self.needed_items.remove(&item_name);
+            self.purchased_items.remove(&item_name);
+            self.awset.rmv_i(item_name.clone());
+
+        }
+        // On this merge, we just need to deal with the two maps for purchased and needed, but uses the same logic as the first created ShoppingList CRDT 
+        pub fn merge(&mut self, inc_list: &ShoppingListCRDT) {
+            
+            self.awset.merge(&inc_list.awset);
+
+            // Merging needed_items
+            let mut merged_needed_items = HashMap::new();
+            for item_name in self.awset.elements() {
+                let merged_item = match (self.needed_items.get(&item_name), inc_list.needed_items.get(&item_name)) {
+                    (Some(self_item), Some(inc_list_item)) => self_item.merge(inc_list_item),
+                    (None, Some(inc_list_item)) | (Some(inc_list_item), None) => { 
+                        inc_list_item.clone()
+                    }
+                    _ => continue,
+                };
+                merged_needed_items.insert(item_name.clone(), merged_item);
+            }
+            self.needed_items = merged_needed_items;
+
+            // Merging purchased_items
+            let mut merged_purchased_items = HashMap::new();
+            for item_name in self.awset.elements() {
+                let merged_item = match (self.purchased_items.get(&item_name), inc_list.purchased_items.get(&item_name)) {
+                    (Some(self_item), Some(inc_list_item)) => self_item.merge(inc_list_item),
+                    (None, Some(inc_list_item)) | (Some(inc_list_item), None) => {
+                        inc_list_item.clone()
+                    }
+                    _ => continue,
+                };
+                merged_purchased_items.insert(item_name.clone(), merged_item);
+            }
+            self.purchased_items = merged_purchased_items;
+        }
+
+        pub fn get_items(&self) -> Vec<String> {
+            self.awset.elements()
+        }
+    }
+
 }
+
 
 #[cfg(test)]
 pub mod tests {
@@ -1139,4 +1295,13 @@ mod property_shopping_list_tests {
 
         //TODO: do property test that mix remove and add operations with assoc, comut and idemp properties!
     }
+    
 }
+//TODO: do property tests for new shoppinListsV2 CRDT
+// #[cfg(test)]
+// mod property_shopping_list_v2_tests {
+
+// }
+
+
+
