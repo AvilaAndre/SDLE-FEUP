@@ -100,9 +100,8 @@ func handleGossipPushPullAntiEntropyRequest(w http.ResponseWriter, r *http.Reque
 	 */
 	case http.MethodPost:
 	{
+		var incomingListIdDotContents readChanStructForDotContext
 		
-		incomingListIdDotContents := make(chan readChanStructForDotContext)// to receive list_id_dot_contents from sender pull request node
-
 		decoded, incomingListIdDotContents := protocol.DecodeRequestBody(w, r.Body, incomingListIdDotContents)
 		if !decoded {
 			
@@ -111,13 +110,15 @@ func handleGossipPushPullAntiEntropyRequest(w http.ResponseWriter, r *http.Reque
 	
 		
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("This can try to answer the anti-entropy pull request from sender node"))
+		w.Write([]byte("This node will try to answer the anti-entropy pull request from sender node"))
 		
 		//TODO: check if here we can use/have access serverPort and serverHostname
 		// Get the local node's list_id_dot_contents
-		localListIdDotContents := make(chan readChanStructForDotContext)// to receive Host node local list_id_dot_contents from database
+		localListIdDotContentsChan := make(chan readChanStructForDotContext)
 
-		sendReadAndWaitDotContext(serverHostname, serverPort, localListIdDotContents )
+    	// Call the function with the channel
+    	go sendReadAndWaitDotContext(serverHostname, serverPort, localListIdDotContentsChan)
+		localListIdDotContents := <-localListIdDotContentsChan
 		if localListIdDotContents.code > 1 {
 			//TODO: check if this is the best approach !
 			w.WriteHeader(http.StatusInternalServerError)
@@ -134,9 +135,10 @@ func handleGossipPushPullAntiEntropyRequest(w http.ResponseWriter, r *http.Reque
 					"list_id": listId,
 				}
 
-				shopping_list := make(chan readChanStruct)
+				shopping_list_chan := make(chan readChanStruct)
 				// Here we get the local Shopping_list with listId
-				sendReadAndWait(serverHostname, serverPort, payload, shopping_list)
+				go sendReadAndWait(serverHostname, serverPort, payload, shopping_list_chan)
+				shopping_list := <-shopping_list_chan
 				if shopping_list.code < 2 {
 					differingLists[listId] = shopping_list.content
 				}else{
@@ -163,24 +165,24 @@ func handleGossipPushPullAntiEntropyRequest(w http.ResponseWriter, r *http.Reque
 	//When sender node do push -> Sends the new merged lists to the receiver node
 	case http.MethodPut:
 		{
-			var incomingMergedLists map[string]*crdt_go.ShoppingList
-			success, incomingLists := protocol.DecodeRequestBody(w, r.Body, incomingMergedLists)
+			var incoming_merged_lists map[string]*crdt_go.ShoppingList
+			success, incoming_lists := protocol.DecodeRequestBody(w, r.Body, incoming_merged_lists)
 			if !success {
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte("Error decoding incoming merged lists"))
 				return
 			}
 
-			incomingMergedLists = incomingLists
-			allSuccess := true
+			incoming_merged_lists = incoming_lists
+			all_success := true
 
-			for listId, incMergedList := range incomingMergedLists {
-				if !processMergedList(listId, incMergedList) {
-					allSuccess = false
+			for list_id, inc_merged_list := range incoming_merged_lists {
+				if !processMergedList(list_id, inc_merged_list) {
+					all_success = false
 				}
 			}
 
-			if allSuccess {
+			if all_success {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("incoming Merged lists processed successfully"))
 			} else {
@@ -219,7 +221,10 @@ func storeMergedList(list_id string, merged_list *crdt_go.ShoppingList) bool {
 		ListId:  list_id,
 		Content: merged_list,
 	}
+	
 	writeChan := make(chan bool)
-	sendWriteAndWait(serverHostname, serverPort, mergedListPayload, writeChan)
-	return <-writeChan
+	go sendWriteAndWait(serverHostname, serverPort, mergedListPayload, writeChan)
+
+	writeChanResult := <-writeChan
+	return writeChanResult
 }

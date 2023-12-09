@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	
 	"sdle.com/mod/protocol"
 	"sdle.com/mod/crdt_go"
 	hash_ring "sdle.com/mod/hash_ring"
@@ -42,14 +43,14 @@ func gossipAntiEntropy(numb_choosen_nodes int32) {
 
 		
 		// Get all vnodes hash keys from the ring of the current node
-		for index := 0; index < len(ring.GetNodes()[server_host_node_id].vnodes); index++ { //We directly use ring on getNodes because we dont want to clone ring that have a Mutex parameter
-			var hash_id_vnode = hashId(ring.GetNodes()[server_host_node_id].vnodes[index])
+		for index := 0; index < len(ring.GetNodes()[server_host_node_id].Vnodes); index++ { //We directly use ring on getNodes because we dont want to clone ring that have a Mutex parameter
+			var hash_id_vnode = hash_ring.HashId(ring.GetNodes()[server_host_node_id].Vnodes[index])
 			server_host_vnodes_hash_keys = append(server_host_vnodes_hash_keys, hash_id_vnode)
 		}
 
 		var allReplicationNodes [][]*hash_ring.NodeInfo
 
-		// Get all replication nodes from the ring of the current node: who is doing the gossipAntiEntropy
+		
 		for _, vnodeHashKey := range server_host_vnodes_hash_keys {
 			replicationNodes := ring.GetHealthyNodesForID(vnodeHashKey)
 			if len(replicationNodes) > ring.ReplicationFactor {
@@ -144,15 +145,24 @@ func gossipAntiEntropyWith(node *hash_ring.NodeInfo,  numb_tries int64) {
 	
 
 	// Here we need to read all list_ids and dot_context for every list and save on a Map
-	read_chan_with_dot_context := make(chan readChanStructForDotContext)// to receive ShoppingLists from database
+	read_chan_with_dot_context_chan := make(chan readChanStructForDotContext)// to receive ShoppingLists from database
 
 	// Get all the list_id_dot_contents Map from the sender/Host node 
-	sendReadAndWaitDotContext(serverHostname, serverPort, read_chan_with_dot_context)
+	go sendReadAndWaitDotContext(serverHostname, serverPort, read_chan_with_dot_context_chan)
+	read_chan_with_dot_context := <-read_chan_with_dot_context_chan
 	
+	jsonDotContext, err := json.Marshal(read_chan_with_dot_context)
+
+	if err != nil {
+		log.Printf("Error happened in JSON marshal. Err: %s", err)
+
+		node.GossipLock.Unlock()
+		return
+	}
 
 	// send all the list_id_dot_contents to node and wait for response
 	//TODO: 
-	response_from_pull, err := protocol.SendRequestWithData(http.MethodPost, node.Address, node.Port, "/gossip/antiEntropy/request/pull", read_chan_with_dot_context)
+	response_from_pull, err := protocol.SendRequestWithData(http.MethodPost, node.Address, node.Port, "/gossip/antiEntropy/request/pull", jsonDotContext)
 	
 	if err != nil {
         handleCommunicationError(node, numb_tries)
@@ -196,68 +206,75 @@ func handleCommunicationError(node *hash_ring.NodeInfo, numb_tries int64) {
 func handleSuccessfulPullPushResponse(node *hash_ring.NodeInfo, response *http.Response) {
 
 
-differing_lists := make(map[string]*crdt_go.ShoppingList)
-success, decoded_differingLists := protocol.DecodeHTTPResponse(nil, response, differing_lists)
-if !success {
-	fmt.Println("Error decoding response from anti-entropy pull request")
-	return
-}
+	differing_lists := make(map[string]*crdt_go.ShoppingList)
+	success, decoded_differingLists := protocol.DecodeHTTPResponse(nil, response, differing_lists)//TODO: check this if decoded properly
+	if !success {
+		fmt.Println("Error decoding response from anti-entropy pull request")
+		return
+	}
 
-differing_lists = decoded_differingLists
-merged_lists := processDifferingLists(differing_lists)
+	differing_lists = decoded_differingLists
+	merged_lists,err := processDifferingLists(differing_lists)
 
-// Send the merged new shoppingLists to the receiver node that have responded
-marshaled_merged_lists, err := json.Marshal(merged_lists)
-    if err != nil {
-        fmt.Println("Error marshaling merged lists:", err)
-        return
-    }
-	//TODO: check if i need to retun on err !=nill
-    // Finally we send the merged shoppingLists, requesting a push in the anti-entropy mechanism
-    response_from_push, err := protocol.SendRequestWithData(http.MethodPut, node.Address, node.Port, "/gossip/antiEntropy/response/push", marshaled_merged_lists)
-    if err != nil {
-        fmt.Println("Error sending merged lists to receiver node:", err)
-    } else if response_from_push.StatusCode != http.StatusOK {
-        fmt.Println("Non-OK status code received from receiver node during push:", response_from_push.StatusCode)
-    }
+	if err != nil {
+		// Handle the error
+		fmt.Printf("Error processing differing lists: %s\n", err)
+		return
+	}
 
-	if response_from_push.StatusCode == http.StatusOK{
-		fmt.Println("AntiEntropy pushpull dot context mechanism totally successful!")
-	} 
+	// Send the merged new shoppingLists to the receiver node that have responded
+	marshaled_merged_lists, err := json.Marshal(merged_lists)
+		if err != nil {
+			fmt.Println("Error marshaling merged lists:", err)
+			return
+		}
+		//TODO: check if i need to retun on err !=nill
+		// Finally we send the merged shoppingLists, requesting a push in the anti-entropy mechanism
+		response_from_push, err := protocol.SendRequestWithData(http.MethodPut, node.Address, node.Port, "/gossip/antiEntropy/response/push", marshaled_merged_lists)
+		if err != nil {
+			fmt.Println("Error sending merged lists to receiver node:", err)
+		} else if response_from_push.StatusCode != http.StatusOK {
+			fmt.Println("Non-OK status code received from receiver node during push:", response_from_push.StatusCode)
+		}
+
+		if response_from_push.StatusCode == http.StatusOK{
+			fmt.Println("AntiEntropy pushpull dot context mechanism totally successful!")
+		} 
 	
 }
 
-func processDifferingLists(differing_lists map[string]*crdt_go.ShoppingList) map[string]*crdt_go.ShoppingList {
+func processDifferingLists(differing_lists map[string]*crdt_go.ShoppingList) (map[string]*crdt_go.ShoppingList, error) {
     merged_lists := make(map[string]*crdt_go.ShoppingList)
+	var err error
+
     for list_id, common_list := range differing_lists {
         readChan := make(chan readChanStruct)
         payload := map[string]string{"list_id": list_id}
-        sendReadAndWait(serverHostname, serverPort, payload, readChan)
-        result := <-readChan
+        go sendReadAndWait(serverHostname, serverPort, payload, readChan)
+        result_read := <-readChan
         
-        if result.code == 1 {
-			var local_list *crdt_go.ShoppingList = result.content
-            local_list.Merge(common_list) //local_list merge with common_list
-            merged_lists[list_id] = local_list
-
-            // Store the merged list back into the local node's database
-          	err :=  storeMergedList(list_id, local_list)
-			if !err {
-				fmt.Println("Error storing merged list with ID:", list_id)
-
+        switch result_read.code {
+			case 1: // List was found and retrieved
+				local_list := result_read.content
+				local_list.Merge(common_list) // Merge local_list with common_list
+				merged_lists[list_id] = local_list
+	
+				// Store the merged list back into the local node's database
+				if !storeMergedList(list_id, local_list) {
+					fmt.Printf("Error storing merged list with ID: %s\n", list_id)
+				}
+	
+			case 2: // No list was found but is supposed to exist
+				fmt.Printf("List with ID %s not found locally\n", list_id)
+				err = fmt.Errorf("list with ID %s not found locally", list_id)
+	
+			case 3: // No response or the response is invalid
+				fmt.Printf("Invalid response or error occurred when fetching list with ID %s\n", list_id)
+				err = fmt.Errorf("invalid response or error occurred when fetching list with ID %s", list_id)
 			}
-    	}
-	}
-	return merged_lists
+			
+		
+		}
+	
+		return merged_lists, err
 }
-// func storeMergedList(list_id string, merged_list *crdt_go.ShoppingList) {
-//     merged_list_payload := protocol.ShoppingListOperation{
-//         ListId:  list_id,
-//         Content: merged_list,
-//     }
-//     write_chan := make(chan bool)
-//     sendWriteAndWait(serverHostname, serverPort, merged_list_payload,write_chan)
-//     if success := <-write_chan; !success {
-//         fmt.Println("Error storing merged list with ID:", list_id)
-//     }
-// }

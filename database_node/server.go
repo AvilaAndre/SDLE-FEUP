@@ -31,7 +31,7 @@ func startServer(serverPort string, serverRunning chan bool) {
 
 	go gossip()
 	//TODO: launch gossipAntiEntropy here or bellow? 
-	go gossipAntiEntropy(ring.ReplicationFactor -1)//TODO: what to choose? if ReplicationFactor==2, anti-entropy will be between just one node and other possible node from replication nodes
+	go gossipAntiEntropy(int32(ring.ReplicationFactor - 1)) //TODO: what to choose? if ReplicationFactor==2, anti-entropy will be between just one node and other possible node from replication nodes
 	err := http.ListenAndServe(fmt.Sprintf(":%s", serverPort), nil)
 
 	if errors.Is(err, http.ErrServerClosed) {
