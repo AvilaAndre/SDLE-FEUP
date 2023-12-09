@@ -11,6 +11,7 @@ import (
 
 	"sdle.com/mod/protocol"
 	"sdle.com/mod/utils"
+	
 )
 
 func startServerAndJoinCluster(serverPort string, loadBalancerAddress string, loadBalancerPort string, ownData map[string]string) {
@@ -30,7 +31,7 @@ func startServer(serverPort string, serverRunning chan bool) {
 
 	go gossip()
 	//TODO: launch gossipAntiEntropy here or bellow? 
-	go antiEntropyGossip(ring.ReplicationFactor -1, 1)//TODO: what to choose? if ReplicationFactor==2, anti-entropy will be between just one node and other possible node from replication nodes
+	go gossipAntiEntropy(ring.ReplicationFactor -1)//TODO: what to choose? if ReplicationFactor==2, anti-entropy will be between just one node and other possible node from replication nodes
 	err := http.ListenAndServe(fmt.Sprintf(":%s", serverPort), nil)
 
 	if errors.Is(err, http.ErrServerClosed) {

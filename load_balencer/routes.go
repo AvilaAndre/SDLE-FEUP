@@ -1,11 +1,11 @@
 package load_balencer
 
-import (
-	"net/http"
-)
+// import (
+// 	"net/http"
+// )
 
-func registerRoutes() {
-	// http.HandleFunc("/", getRoot)
+// func registerRoutes() {
+// 	// http.HandleFunc("/", getRoot)
 	
-	http.HandleFunc("/ping", getPing)
-}
+// 	http.HandleFunc("/ping", getPing)
+// }

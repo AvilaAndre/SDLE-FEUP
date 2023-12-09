@@ -1,12 +1,12 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"sync"
-	"crypto/sha256"
 
 	"github.com/nobonobo/unqlitego"
 	"sdle.com/mod/crdt_go"
@@ -46,10 +46,8 @@ func (db *DatabaseInstance) initialize(address string, port string) {
 
 func (db *DatabaseInstance) updateOrSetShoppingList(key string, list *crdt_go.ShoppingList) bool {
 	readList, listExists := db.getShoppingList(key)
-	var list_store_res bool 
-	var list_store_context_res bool 
-	specialKey := []byte("lists_id_dot_contents")
-	currentContentsBytes, readSuccess := db.getValue(specialKey)
+	
+
 
 	if listExists {
 		// merge and store
@@ -62,7 +60,7 @@ func (db *DatabaseInstance) updateOrSetShoppingList(key string, list *crdt_go.Sh
 		}
 
 		list_store_res:= db.storeValue([]byte(key), crdtBytes)
-		dot_context_hash, err := hashOfAWSetContext(readList.AwSet)
+		dot_context_hash, err := hashOfDotContext(readList.AwSet)
 
 		if err != nil {
 			log.Printf("Error computing hash of AWSet context: %s", err)
@@ -71,10 +69,10 @@ func (db *DatabaseInstance) updateOrSetShoppingList(key string, list *crdt_go.Sh
 
 		// Update the lists_id_dot_contents record with the context hash
 		list_store_context_res := db.updateOrSetListsIdDotContents(key, dot_context_hash)
-		if !updateSuccess {
+		if !list_store_context_res {
 			log.Printf("Error updating lists_id_dot_contents for key %s", key)
 		}
-
+		return (list_store_res && list_store_context_res)
 
 	} else {
 		// simply store
@@ -85,8 +83,9 @@ func (db *DatabaseInstance) updateOrSetShoppingList(key string, list *crdt_go.Sh
 			return false
 		}
 
-		list_store_res:= db.storeValue([]byte(key), crdtBytes)
-		dot_context_hash, err := hashOfAWSetContext(list.AwSet)
+		list_store_res := db.storeValue([]byte(key), crdtBytes)
+
+		dot_context_hash, err := hashOfDotContext(readList.AwSet)
 
 		if err != nil {
 			log.Printf("Error computing hash of AWSet context: %s", err)
@@ -94,13 +93,11 @@ func (db *DatabaseInstance) updateOrSetShoppingList(key string, list *crdt_go.Sh
 		}
 
 		list_store_context_res := db.updateOrSetListsIdDotContents(key, dot_context_hash)
-		if !updateSuccess {
+		if !list_store_context_res {
 			log.Printf("Error updating lists_id_dot_contents for key %s", key)
 		}
+		return (list_store_res && list_store_context_res)
 	}
-
-	return (storeSuccess && list_store_context_res)
-
 }
 
 /**
@@ -220,14 +217,20 @@ func (db *DatabaseInstance) GetAllListsIdDotContents() (map[string]string, error
     return listsIdDotContents, nil
 }
 
+//Usefull functions for future work
 
-func hashOfAWSetContext(awset *crdt_go.AWSet) (string, error) {
+func hashOfDotContext(awset *crdt_go.AWSet) (string, error) {
+    // Serialize the dot_context item to JSON
     jsonData, err := json.Marshal(awset.Context)
     if err != nil {
         return "", err
     }
 
+    // Compute the SHA-256 hash of the JSON string
     hash := sha256.Sum256(jsonData)
+
+    // Convert the hash to a hexadecimal string
     hexHash := fmt.Sprintf("%x", hash)
+
     return hexHash, nil
 }

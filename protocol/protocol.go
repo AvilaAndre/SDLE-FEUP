@@ -59,43 +59,6 @@ const (
 	JSON_DECODE_ERROR string = "Failed to decode the given JSON."
 )
 
-// TODO: erase this in the end!!
-// func SendRequestWithAntiEntropyData(method string, address string, port string, path string, data []byte, anti_entropy_data []byte ) (*http.Response, error) {
-// 	requestURL := fmt.Sprintf("http://%s:%s%s", address, port, path)
-
-// 	//Need to do this so we can send all the data we need
-// 	payload := map[string]json.RawMessage{
-//         "data":           json.RawMessage(data),
-//         "antiEntropyData": json.RawMessage(anti_entropy_data),
-//     }
-	
-// 	payloadBytes, err := json.Marshall(payload)
-
-// 	req, err := http.NewRequest(method, requestURL, bytes.NewBuffer(payloadBytes))
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	req.Header.Set("Content-Type", "application/json")
-
-// 	client := &http.Client{}
-// 	res, err := client.Do(req) // we send the request
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	// defer res.Body.Close()
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return res, nil
-// }
-
-const (
-	JSON_DECODE_ERROR string = "Failed to decode the given JSON."
-)
-
 
 func FailedToDecodeJSON(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusBadRequest)
@@ -150,36 +113,3 @@ func DecodeHTTPResponse[T any](w http.ResponseWriter, response *http.Response, d
     return true, data
 }
 
-
-//Usefull functions for future work
-func hashOfAWSet(awset *crdt_go.ShoppingList.AWset) (string, error) {
-    // Serialize the awset to JSON
-    jsonData, err := json.Marshal(awset)
-    if err != nil {
-        return "", err
-    }
-
-    // Compute the SHA-256 hash of the JSON string
-    hash := sha256.Sum256(jsonData)
-
-    // Convert the hash to a hexadecimal string
-    hexHash := fmt.Sprintf("%x", hash)
-
-    return hexHash, nil
-}
-
-func hashOfDotContextItem(dot_context *crdt_go.ContextItem) (string, error) {
-    // Serialize the dot_context item to JSON
-    jsonData, err := json.Marshal(dot_context)
-    if err != nil {
-        return "", err
-    }
-
-    // Compute the SHA-256 hash of the JSON string
-    hash := sha256.Sum256(jsonData)
-
-    // Convert the hash to a hexadecimal string
-    hexHash := fmt.Sprintf("%x", hash)
-
-    return hexHash, nil
-}

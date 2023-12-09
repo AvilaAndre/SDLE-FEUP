@@ -25,7 +25,7 @@ type readChanStructForDotContext struct {
     code    int
     content map[string]string 
     address string
-    port   
+    port   string
 }
 
 func handleCoordenator(w http.ResponseWriter, r *http.Request) {
@@ -365,11 +365,11 @@ func sendReadAndWait(address string, port string, payload map[string]string, rea
         readChan <- readChanStructForDotContext{1, listsIdDotContents, address, port}
         return
     }
-	else{
-		//AntiEntropy The adress and or port used need to be always from the hostNode when dealling with DotContext !!
-		readChan <- readChanStructForDotContext{3, nil, address, port}
-            return
-	}
+	
+	//AntiEntropy The adress and or port used need to be always from the hostNode when dealling with DotContext !!
+	readChan <- readChanStructForDotContext{3, nil, address, port}
+	return
+	
 }
 
 // Returns true if successful, false if not

@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"sdle.com/mod/utils"
+
+	"sdle.com/mod/crdt_go"
 	"sdle.com/mod/protocol"
-	"sdle.com/mod/database_node"
 )
 
 func getPing(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +90,7 @@ func handleGossip(w http.ResponseWriter, r *http.Request) {
 }
 
 // This responds and deals with the first pull-push request for anti-entropy mechanism
-func handleGossipPullAntiEntropyRequest(w http.ResponseWriter, r *http.Request) {
+func handleGossipPushPullAntiEntropyRequest(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	/**
 	 * Upon receiving this message, the node needs to answer the incoming gossip anti-entropy pull with 
@@ -117,7 +117,7 @@ func handleGossipPullAntiEntropyRequest(w http.ResponseWriter, r *http.Request) 
 		// Get the local node's list_id_dot_contents
 		localListIdDotContents := make(chan readChanStructForDotContext)// to receive Host node local list_id_dot_contents from database
 
-		list_handler.sendReadAndWaitDotContext(serverHostname, serverPort, localListIdDotContents )
+		sendReadAndWaitDotContext(serverHostname, serverPort, localListIdDotContents )
 		if localListIdDotContents.code > 1 {
 			//TODO: check if this is the best approach !
 			w.WriteHeader(http.StatusInternalServerError)
@@ -134,11 +134,11 @@ func handleGossipPullAntiEntropyRequest(w http.ResponseWriter, r *http.Request) 
 					"list_id": listId,
 				}
 
-				shoppingList := make(chan readChanStruct)
-				// Here we get the local ShoppingList with listId
-				list_handler.sendReadAndWait(serverHostname, serverPort, payload, shoppingList)
-				if shoppingList.code < 2 {
-					differingLists[listId] = shoppingList.content
+				shopping_list := make(chan readChanStruct)
+				// Here we get the local Shopping_list with listId
+				sendReadAndWait(serverHostname, serverPort, payload, shopping_list)
+				if shopping_list.code < 2 {
+					differingLists[listId] = shopping_list.content
 				}else{
 					//TODO: check if this is the best approach !
 					w.WriteHeader(http.StatusInternalServerError)
@@ -196,28 +196,28 @@ func handleGossipPullAntiEntropyRequest(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func processMergedList(listId string, mergedList *crdt_go.ShoppingList) bool {
+func processMergedList(list_id string, merged_list *crdt_go.ShoppingList) bool {
 	readChan := make(chan readChanStruct)
-	payload := map[string]string{"list_id": listId}
+	payload := map[string]string{"list_id": list_id}
 	sendReadAndWait(serverHostname, serverPort, payload, readChan)
 	result := <-readChan
 
 	if result.code == 1 {
-		localList := result.content
-		localList.Merge(mergedList)
-		return storeMergedList(listId, localList)
+		local_list := result.content
+		local_list.Merge(merged_list)
+		return storeMergedList(list_id, local_list)
 	} else if result.code == 2 {
 		// If the list doesn't exist locally, just add the new list
-		return storeMergedList(listId, mergedList)
+		return storeMergedList(list_id, merged_list)
 	}
 
 	return false
 }
 
-func storeMergedList(listId string, mergedList *crdt_go.ShoppingList) bool {
+func storeMergedList(list_id string, merged_list *crdt_go.ShoppingList) bool {
 	mergedListPayload := protocol.ShoppingListOperation{
-		ListId:  listId,
-		Content: mergedList,
+		ListId:  list_id,
+		Content: merged_list,
 	}
 	writeChan := make(chan bool)
 	sendWriteAndWait(serverHostname, serverPort, mergedListPayload, writeChan)
