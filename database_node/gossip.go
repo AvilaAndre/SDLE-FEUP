@@ -63,9 +63,9 @@ func gossipAntiEntropy(numb_choosen_nodes int32) {
 
         
        
-		var allNodes []*hash_ring.NodeInfo
+	
 		// Check if there are enough nodes to choose from
-		if int32(len(allNodes)) < numb_choosen_nodes {
+		if int32(len(allReplicationNodes)) < numb_choosen_nodes {
 			log.Printf("Not enough nodes to perform anti-entropy gossip")
 			time.Sleep(antiEntropyInterval(10.0)) // Wait longer if not enough nodes
 			continue
@@ -73,17 +73,19 @@ func gossipAntiEntropy(numb_choosen_nodes int32) {
 		src := rand.NewSource(time.Now().UnixNano())
 		r := rand.New(src)
 		
-		// Shuffle allNodes to randomize the selection and select a subset of nodes for anti-entropy gossip
-		r.Shuffle(min(len(allNodes),replicationFactor), func(i, j int) {
-			allNodes[i], allNodes[j] = allNodes[j], allNodes[i]
+		// Shuffle allReplicationNodes to randomize the selection and select a subset of nodes for anti-entropy gossip
+		r.Shuffle(min(len(allReplicationNodes),replicationFactor), func(i, j int) {
+			allReplicationNodes[i], allReplicationNodes[j] = allReplicationNodes[j], allReplicationNodes[i]
 		})
 
 		
-		selectedNodes := allNodes[:numb_choosen_nodes]
+		selectedNodes := allReplicationNodes[:numb_choosen_nodes]
 
 		
-		for _, node := range selectedNodes {
-			go gossipAntiEntropyWith(node,3) //TODO: check if 3 is a good number of tries in this type of "gossip"
+		for _, replicationNodeGroup := range selectedNodes {
+			for _, node := range replicationNodeGroup {
+				go gossipAntiEntropyWith(node, 3) 
+			}
 		}
 
 		// Sleep for a defined interval before the next gossip round
@@ -133,7 +135,7 @@ func gossipWith(node *hash_ring.NodeInfo) {
 	}
 
 	node.GossipLock.Unlock()
-	return
+	
 }
 
 
@@ -165,7 +167,7 @@ func gossipAntiEntropyWith(node *hash_ring.NodeInfo,  numb_tries int64) {
 	response_from_pull, err := protocol.SendRequestWithData(http.MethodPost, node.Address, node.Port, "/gossip/antiEntropy/request/pull", jsonDotContext)
 	
 	if err != nil {
-        handleCommunicationError(node, numb_tries)
+        handleCommunicationError(node)
 		node.GossipLock.Unlock()
         return
     }
@@ -182,25 +184,19 @@ func gossipAntiEntropyWith(node *hash_ring.NodeInfo,  numb_tries int64) {
 		handleSuccessfulPullPushResponse(node, response_from_pull)
 		
     } else {
-		handleCommunicationError(node, numb_tries)
+		handleCommunicationError(node)
 		fmt.Println("Non-OK status code received:", response_from_pull.StatusCode)
 	}
     
 
 	node.GossipLock.Unlock()
-	return	
+	
 }
 
 
 
-func handleCommunicationError(node *hash_ring.NodeInfo, numb_tries int64) {
-    if node.DeadCounter < numb_tries {
-        node.DeadCounter++
-    } else if node.DeadCounter == numb_tries {
-        node.Status = hash_ring.NODE_UNRESPONSIVE
-        log.Printf("%s set to UNRESPONSIVE when trying anti-entropy mechanism\n", node.Id)
-        node.DeadCounter++
-    }
+func handleCommunicationError(node *hash_ring.NodeInfo) {
+    fmt.Println("SendRequestData with dotContext failed to node %s: %s", node.Port)
 }
 
 func handleSuccessfulPullPushResponse(node *hash_ring.NodeInfo, response *http.Response) {

@@ -331,7 +331,7 @@ pub mod crdt {
         }
 
         pub fn new_v2(id: Uuid) -> Self {
-            ShoppingList {
+            ShoppingListCRDTV2 {
                 node_id: id,
                 needed_items: HashMap::new(),
                 purchased_items: HashMap::new(),
@@ -422,7 +422,7 @@ pub mod crdt {
 
         }
         // On this merge, we just need to deal with the two maps for purchased and needed, but uses the same logic as the first created ShoppingList CRDT 
-        pub fn merge(&mut self, inc_list: &ShoppingListCRDT) {
+        pub fn merge(&mut self, inc_list: &ShoppingListCRDTV2) {
             
             self.awset.merge(&inc_list.awset);
 

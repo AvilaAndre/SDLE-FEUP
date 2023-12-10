@@ -22,10 +22,10 @@ type readChanStruct struct {
 
 // We need this to deal with map list_id-> dotContext
 type readChanStructForDotContext struct {
-    code    int
-    content map[string]string 
-    address string
-    port   string
+    Code    int
+    Content map[string]string 
+    Address string
+    Port   string
 }
 
 func handleCoordenator(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +78,7 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 				payload := map[string]string{
 					"list_id": listId,
 				}
-
+				log.Println("I am inside method", r.Method, "request","on Coordenator handler " ,"and I am sending a read request to ", physicalNode.Address, physicalNode.Port)
 				go sendReadAndWait(physicalNode.Address, physicalNode.Port, payload, readChan)
 				waitForRead += 1
 			}
@@ -91,6 +91,7 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 
 			// TODO: TIMEOUT
 			for {
+				log.Println("I am inside method", r.Method, "request","on Coordenator handler " ,"and I am waiting for a read response")
 				if waitForRead < 1 {
 					break
 				}
@@ -121,6 +122,7 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
+			
 
 			if len(readsContent) > 0 {
 				// Merge every read
@@ -158,7 +160,9 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusServiceUnavailable)
 				return
 			}
+			
 		}
+
 	/**
 	 * This writes the data received into a key on the database
 	 */
@@ -283,7 +287,6 @@ func handleOperation(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("Failed to unmarshall CRDT"))
 			return
 		}
-
 		// Write the information received in this machine
 		database.updateOrSetShoppingList(target.ListId, target.Content)
 	}
@@ -333,6 +336,8 @@ func sendReadAndWait(address string, port string, payload map[string]string, rea
 
 		readChan <- readChanStruct{1, target.Content, address, port}
 	} else if response.StatusCode == http.StatusNotFound {
+		//Print message to the user
+		fmt.Println("List not found!!!!!")
 		readChan <- readChanStruct{2, nil, address, port}
 	} else {
 		readChan <- readChanStruct{3, nil, address, port}
@@ -368,7 +373,7 @@ func sendReadAndWait(address string, port string, payload map[string]string, rea
 	
 	//AntiEntropy The adress and or port used need to be always from the hostNode when dealling with DotContext !!
 	readChan <- readChanStructForDotContext{3, nil, address, port}
-	return
+	
 	
 }
 

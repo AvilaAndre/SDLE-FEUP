@@ -109,9 +109,6 @@ func handleGossipPushPullAntiEntropyRequest(w http.ResponseWriter, r *http.Reque
 		}
 	
 		
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("This node will try to answer the anti-entropy pull request from sender node"))
-		
 		//TODO: check if here we can use/have access serverPort and serverHostname
 		// Get the local node's list_id_dot_contents
 		localListIdDotContentsChan := make(chan readChanStructForDotContext)
@@ -119,16 +116,19 @@ func handleGossipPushPullAntiEntropyRequest(w http.ResponseWriter, r *http.Reque
     	// Call the function with the channel
     	go sendReadAndWaitDotContext(serverHostname, serverPort, localListIdDotContentsChan)
 		localListIdDotContents := <-localListIdDotContentsChan
-		if localListIdDotContents.code > 1 {
+		if localListIdDotContents.Code > 1 {
 			//TODO: check if this is the best approach !
+			//write message to log
+			log.Printf("Error getting localListIdDotContents: %s",localListIdDotContents)
+			
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		// Compare hashes of dotContest between sender of pull and receiver and identify differing lists
 		differingLists := make(map[string]*crdt_go.ShoppingList)
-		for listId, incomingHash := range incomingListIdDotContents.content {
-			localHash, exists := localListIdDotContents.content[listId]
+		for listId, incomingHash := range incomingListIdDotContents.Content {
+			localHash, exists := localListIdDotContents.Content[listId]
 			if exists && localHash != incomingHash {
 				//TODO: check if here we can use/have access to serverPort and serverHostname
 				payload := map[string]string{
