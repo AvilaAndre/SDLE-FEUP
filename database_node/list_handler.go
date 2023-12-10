@@ -357,6 +357,8 @@ func sendReadAndWait(address string, port string, payload map[string]string, rea
         if err != nil {
             
             readChan <- readChanStructForDotContext{3, nil, address, port}
+			//print error
+			fmt.Println("Error when receiving response from sendReadAndWaitDotContext: ", err)
             return
         }
 		// No response or the response is invalid

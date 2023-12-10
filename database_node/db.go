@@ -72,7 +72,7 @@ func (db *DatabaseInstance) updateOrSetShoppingList(key string, list *crdt_go.Sh
 		if !list_store_context_res {
 			log.Printf("Error updating lists_id_dot_contents for key %s", key)
 		}
-		return (list_store_res && list_store_context_res)
+		return (list_store_res && list_store_context_res) //TODO: error can be here, if list_store_context_res is not true: check this
 
 	} else {
 		// simply store
@@ -96,7 +96,7 @@ func (db *DatabaseInstance) updateOrSetShoppingList(key string, list *crdt_go.Sh
 		if !list_store_context_res {
 			log.Printf("Error updating lists_id_dot_contents for key %s", key)
 		}
-		return (list_store_res && list_store_context_res)
+		return (list_store_res && list_store_context_res)//TODO: error can be here, if list_store_context_res is not true: check this
 	}
 }
 
@@ -165,7 +165,7 @@ func (db *DatabaseInstance) getValue(key []byte) ([]byte, bool) {
 	return data, true
 }
 
-
+// TODO: check if updateOrSetListsIdDotContents is used properly and works as expected
 //Logic for anti-entropy
 func (db *DatabaseInstance) updateOrSetListsIdDotContents(key string, contextHash string) bool {
     specialKey := []byte("lists_id_dot_contents")
@@ -187,7 +187,7 @@ func (db *DatabaseInstance) updateOrSetListsIdDotContents(key string, contextHas
     currentContents[key] = contextHash
 
     
-    updatedContentsBytes, err := json.Marshal(currentContents)
+    updatedContentsBytes, err := json.Marshal(currentContents)//TODO: check if this is correct
     if err != nil {
         log.Printf("Error marshaling updated lists_id_dot_contents: %s", err)
         return false

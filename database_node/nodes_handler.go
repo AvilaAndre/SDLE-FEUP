@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"fmt"
 
 	"sdle.com/mod/crdt_go"
 	"sdle.com/mod/protocol"
@@ -107,7 +108,9 @@ func handleGossipPushPullAntiEntropyRequest(w http.ResponseWriter, r *http.Reque
 			
 			return
 		}
-	
+		//Print the incomingListIdDotContents that comes in json format
+		fmt.Printf("incomingListIdDotContents received for anti-entropy push-pull mechanism: %s", fmt.Sprintf("%v", incomingListIdDotContents))
+
 		
 		//TODO: check if here we can use/have access serverPort and serverHostname
 		// Get the local node's list_id_dot_contents
@@ -119,7 +122,7 @@ func handleGossipPushPullAntiEntropyRequest(w http.ResponseWriter, r *http.Reque
 		if localListIdDotContents.Code > 1 {
 			//TODO: check if this is the best approach !
 			//write message to log
-			log.Printf("Error getting localListIdDotContents: %s",localListIdDotContents)
+			log.Printf("Error getting localListIdDotContents: %s",fmt.Sprintf("%v",localListIdDotContents))
 			
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -146,9 +149,15 @@ func handleGossipPushPullAntiEntropyRequest(w http.ResponseWriter, r *http.Reque
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
+			}else if !exists {
+				//Print the shopping_list that comes in json format
+				fmt.Printf("shopping_id %s received for anti-entropy push-pull mechanism, that node doenst have and will check if this list fits on any of his virtual nodes : ",listId)
+				//TODO: check if this is the best approach !
+				//TODO: check if the node handling Post request , have vnodes corresponding to the list_id
+				//TODO: for now: continue
+				continue
 			}
 		}
-
 		// send the differingLists
 		differingListsMarshaled, err := json.Marshal(differingLists)
 		if err != nil {
