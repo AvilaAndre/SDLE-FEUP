@@ -11,6 +11,7 @@ import (
 
 	"sdle.com/mod/protocol"
 	"sdle.com/mod/utils"
+	
 )
 
 func startServerAndJoinCluster(serverPort string, loadBalancerAddress string, loadBalancerPort string, ownData map[string]string) {
@@ -31,7 +32,8 @@ func startServer(serverPort string, serverRunning chan bool) {
 	go gossip()
 
 	go hintedHandoff()
-
+	//TODO: launch gossipAntiEntropy here or bellow? 
+	go gossipAntiEntropy(int32(ring.ReplicationFactor - 1)) //TODO: what to choose? if ReplicationFactor==2, anti-entropy will be between just one node and other possible node from replication nodes
 	err := http.ListenAndServe(fmt.Sprintf(":%s", serverPort), nil)
 
 	if errors.Is(err, http.ErrServerClosed) {
@@ -39,7 +41,7 @@ func startServer(serverPort string, serverRunning chan bool) {
 	} else if err != nil {
 		log.Printf("error starting server: %s\n", err)
 	}
-
+	//TODO: launch gossipAntiEntropy here or above ?
 	serverRunning <- true
 }
 
@@ -50,7 +52,7 @@ func joinCluster(loadBalancerAddress string, loadBalancerPort string, ownData ma
 			log.Fatalf("Error happened in JSON marshal. Err: %s", err)
 			return
 		}
-
+		// This will register the node current node, as a node on the Ring of the load balancer
 		r, err := protocol.SendRequestWithData(http.MethodPut, loadBalancerAddress, loadBalancerPort, "/node/add", jsonData)
 		utils.CheckErr(err)
 

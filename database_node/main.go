@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-
 	hash_ring "sdle.com/mod/hash_ring"
 	"sdle.com/mod/utils"
 )
@@ -16,9 +15,10 @@ var ring hash_ring.HashRing
 
 var database DatabaseInstance
 
-const replicationFactor int = 5
+const replicationFactor int = 5//TODO: change this value to 2 ?
 
 func main() {
+	
 
 	var loadBalancerAddress string = ""
 	var loadBalancerPort string = ""

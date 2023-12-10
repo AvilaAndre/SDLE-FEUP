@@ -1,5 +1,5 @@
 package hash_ring
-
+// TODO: in practice we use should use k ≈ log2(num_items) to obtain reasonably balanced loads for storing a total of num_items in the entire datastore
 import (
 	"crypto/md5"
 	"fmt"
@@ -21,7 +21,7 @@ type NodeInfo struct {
 	Id          string
 	Address     string
 	Port        string
-	vnodes      []string
+	Vnodes      []string
 	Status      NodeStatus
 	GossipLock  sync.Mutex
 	DeadCounter int64
@@ -36,13 +36,13 @@ func newNodeInfo(address string, port string, status NodeStatus) *NodeInfo {
 		Address:     address,
 		Port:        port,
 		Status:      status,
-		vnodes:      make([]string, 0),
+		Vnodes:      make([]string, 0),
 		DeadCounter: 0,
 	}
 }
 
 func (nI *NodeInfo) GetVirtualNodes() []string {
-	return nI.vnodes
+	return nI.Vnodes
 }
 
 type HashRing struct {
@@ -113,26 +113,26 @@ func (ring *HashRing) addNode(address string, port string, isServer bool) bool {
 func (ring *HashRing) addVirtualNode(node_id string, vnode_number int) {
 	var vnode_id string = fmt.Sprintf("%s_vnode%d", node_id, vnode_number)
 
-	var vnode_hash string = hashId(vnode_id)
+	var vnode_hash string = HashId(vnode_id)
 
 	ring.vnodes.Add(vnode_hash, vnode_id) // the Virtual Node's hash is the key, it then points to the node
 
 	// Add vnode_id to the vnodes list
-	ring.nodes[node_id].vnodes = append(ring.nodes[node_id].vnodes, vnode_id)
+	ring.nodes[node_id].Vnodes = append(ring.nodes[node_id].Vnodes, vnode_id)
 }
 
 // TODO: This is only called if a node is deleted
 func (ring *HashRing) removeVirtualNode(node_id string, vnode_number int) {
 	var vnode_id string = fmt.Sprintf("%s_vnode%d", node_id, vnode_number)
 
-	var vnode_hash string = hashId(vnode_id)
+	var vnode_hash string = HashId(vnode_id)
 
 	ring.vnodes.Remove(vnode_hash) // the Virtual Node's hash is the key, it then points to the node
 
 	// Add vnode_id to the vnodes list
-	for index := 0; index < len(ring.nodes[node_id].vnodes); index++ {
-		if ring.nodes[node_id].vnodes[index] == vnode_id {
-			ring.nodes[node_id].vnodes = append(ring.nodes[node_id].vnodes[:index], ring.nodes[node_id].vnodes[index+1:]...)
+	for index := 0; index < len(ring.nodes[node_id].Vnodes); index++ {
+		if ring.nodes[node_id].Vnodes[index] == vnode_id {
+			ring.nodes[node_id].Vnodes = append(ring.nodes[node_id].Vnodes[:index], ring.nodes[node_id].Vnodes[index+1:]...)
 			break
 		}
 	}
@@ -151,7 +151,7 @@ func (ring *HashRing) updateRing() {
 	// check for every node if it has the correct ammount of vnodes
 
 	for node_id := range ring.nodes {
-		var number_of_vnodes int = len(ring.nodes[node_id].vnodes)
+		var number_of_vnodes int = len(ring.nodes[node_id].Vnodes)
 		if number_of_vnodes < max_vnodes {
 			// Adds the missing Virtual Nodes from this node
 			for i := number_of_vnodes; i < max_vnodes; i++ {
@@ -271,7 +271,7 @@ func (ring *HashRing) CheckForNewNodes(nodes []map[string]string, ownHostname st
 func (ring *HashRing) GetNodeForIdFromRing(id string) *NodeInfo {
 	ring.lock.Lock()
 
-	var hash_key string = hashId(id)
+	var hash_key string = HashId(id)
 
 	avl_node := ring.vnodes.Search(hash_key)
 
@@ -301,7 +301,7 @@ func (ring *HashRing) GetHealthyNodesForID(id string) []*NodeInfo {
 }
 
 func (ring *HashRing) GetNextHealthyVirtualNode(id string) string {
-	var hash_key string = hashId(id)
+	var hash_key string = HashId(id)
 
 	avlNode := ring.vnodes.Search(hash_key)
 
@@ -346,7 +346,7 @@ func (ring *HashRing) getHealthyNodesForID(id string) []*NodeInfo {
 		return nodes
 	}
 
-	var hash_key string = hashId(id)
+	var hash_key string = HashId(id)
 
 	nodesChecked := make([]string, 0)
 
@@ -405,7 +405,7 @@ func (ring *HashRing) getHealthyNodesForID(id string) []*NodeInfo {
 	return nodes
 }
 
-func hashId(id string) string {
+func HashId(id string) string {
 	return fmt.Sprintf("%x", md5.Sum([]byte(id)))
 }
 

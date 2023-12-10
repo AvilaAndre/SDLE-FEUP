@@ -15,6 +15,8 @@ type ShoppingListOperation struct {
 	ListId  string                `json:"list_id"`
 	Content *crdt_go.ShoppingList `json:"content"`
 }
+//To use on anti-entropy first message
+
 
 func SendGetRequest(address string, port string, path string) (*http.Response, error) {
 	requestURL := fmt.Sprintf("http://%s:%s%s", address, port, path)
@@ -57,6 +59,7 @@ const (
 	JSON_DECODE_ERROR string = "Failed to decode the given JSON."
 )
 
+
 func FailedToDecodeJSON(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write([]byte(JSON_DECODE_ERROR))
@@ -87,3 +90,26 @@ func DecodeRequestBody[T any](w http.ResponseWriter, body io.ReadCloser, data T)
 		return true, data
 	}
 }
+
+/**
+* Returns false if it fails to decode the body into the rresponse data format
+ */
+func DecodeHTTPResponse[T any](w http.ResponseWriter, response *http.Response, data T) (bool, T) {
+    defer response.Body.Close() // Ensure to close the response body when done
+
+    if response.StatusCode != http.StatusOK {
+        fmt.Println("Received non-OK status code:", response.StatusCode)
+        FailedToDecodeJSON(w)
+        return false, data
+    }
+
+    err := json.NewDecoder(response.Body).Decode(&data)
+    if err != nil {
+        fmt.Println("Error decoding HTTP response body:", err)
+        FailedToDecodeJSON(w)
+        return false, data
+    }
+
+    return true, data
+}
+

@@ -70,7 +70,7 @@
         if (uploadingList) return;
         uploadingList = true;
 
-        // There is no difference between upload and publish yet
+        //TODO: There is no difference between upload and publish yet
         invoke("publish_list", { listId: data.list_info.list_id })
             .then((value) => {
                 console.log("upload success:", value);

@@ -146,7 +146,7 @@ pub fn update_list_item(
     let mut list: ShoppingListData = unwrap_or_return!(db.get_list(list_id.clone()));
 
     let simple_list: SimpleShoppingList = list.simplified();
-
+    let new_counter = simple_list.items.get(&item_name).unwrap().counter;
     if simple_list.items.contains_key(&item_name) {
         // if now checkd and previously wasn't, check item
         if checked == true && simple_list.items.get(&item_name).unwrap().checked != checked {
@@ -157,7 +157,7 @@ pub fn update_list_item(
             if check_operation {
                 return Ok(SimpleListItem {
                     title: item_name,
-                    counter: 0,
+                    counter: new_counter,
                     checked,
                 });
             }
@@ -221,7 +221,7 @@ pub fn item_check(list_id: String, item_name: String, db: &UnQLite) -> Result<bo
             return Err("Item not found in the list");
         }
     };
-
+    // TODO: add needed items with new ShoppingList, needed become 0 when item_check, purchased dont
     list.crdt
         .add_or_update_item(item_name, reset_decrement, true);
 
