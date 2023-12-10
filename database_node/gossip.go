@@ -92,8 +92,10 @@ func gossipAntiEntropy(numb_choosen_nodes int32) {
 			}
 		}
 
-		// Sleep for a defined interval before the next gossip round
-		time.Sleep(antiEntropyInterval(2.0)) // TODO: Check this
+		// Sleep for a defined interval before the next gossipAntiEntropy round
+		time.Sleep(antiEntropyInterval(60.0)) // TODO: Check this
+		//Print one gossip round done
+		fmt.Println("One dotContext antiEntropy push-pull gossip round done!!!!!")
 
     }
 }
@@ -195,7 +197,8 @@ func gossipAntiEntropyWith(node *hash_ring.NodeInfo,  numb_tries int64) {
 		fmt.Println("Non-OK status code received:", response_from_pull.StatusCode)
 	}
     
-
+	//Print successful anti-entropy pull-push
+	fmt.Println("Successful anti-entropy pull-push mechanism routine !!!!")
 	node.GossipLock.Unlock()
 	
 }

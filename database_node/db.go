@@ -48,11 +48,16 @@ func (db *DatabaseInstance) updateOrSetShoppingList(key string, list *crdt_go.Sh
 	readList, listExists := db.getShoppingList(key)
 	
 
+	// print the list
+	fmt.Println("Important: list is: ", list)
 
+	
 	if listExists {
+
+		fmt.Println("Important: list is: ", list)
 		// merge and store
 		readList.Merge(list)
-
+		log.Println("merged list", readList)
 		crdtBytes, err := json.Marshal(readList)
 
 		if err != nil {
@@ -61,12 +66,20 @@ func (db *DatabaseInstance) updateOrSetShoppingList(key string, list *crdt_go.Sh
 
 		list_store_res:= db.storeValue([]byte(key), crdtBytes)
 		dot_context_hash, err := hashOfDotContext(readList.AwSet)
+		//Check if AWSET is empty, then hash is empty
+		if readList.AwSet == nil {
+			dot_context_hash = ""
+		}
+		
+		//Print hash
+		fmt.Println("Important: hash of dot context is: ", dot_context_hash)
+
 
 		if err != nil {
 			log.Printf("Error computing hash of AWSet context: %s", err)
 			return false
 		}
-
+		// TODO: Check error here
 		// Update the lists_id_dot_contents record with the context hash
 		list_store_context_res := db.updateOrSetListsIdDotContents(key, dot_context_hash)
 		if !list_store_context_res {
@@ -76,17 +89,20 @@ func (db *DatabaseInstance) updateOrSetShoppingList(key string, list *crdt_go.Sh
 
 	} else {
 		// simply store
-
+		
 		crdtBytes, err := json.Marshal(list)
 
 		if err != nil {
 			return false
 		}
-
+		log.Println("StoringList case, list", list)
+		log.Println("StoringList case, list Marshall", list)
 		list_store_res := db.storeValue([]byte(key), crdtBytes)
 
 		dot_context_hash, err := hashOfDotContext(readList.AwSet)
-
+		if readList.AwSet == nil {
+			dot_context_hash = ""
+		}
 		if err != nil {
 			log.Printf("Error computing hash of AWSet context: %s", err)
 			return false
@@ -104,6 +120,8 @@ func (db *DatabaseInstance) updateOrSetShoppingList(key string, list *crdt_go.Sh
 * Gets a shopping list from the database
  */
 func (db *DatabaseInstance) getShoppingList(key string) (*crdt_go.ShoppingList, bool) {
+	
+	
 	crdtBytes, readSuccess := db.getValue([]byte(key))
 
 	if !readSuccess {
@@ -151,7 +169,8 @@ func (db *DatabaseInstance) storeValue(key []byte, value []byte) bool {
  */
 func (db *DatabaseInstance) getValue(key []byte) ([]byte, bool) {
 	log.Println("read list", string(key))
-
+	db.lock.Lock()
+	defer db.lock.Unlock()
 	data, err := db.conn.Fetch(key)
 
 	if err != nil {
