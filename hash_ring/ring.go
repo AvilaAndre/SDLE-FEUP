@@ -41,10 +41,16 @@ func newNodeInfo(address string, port string, status NodeStatus) *NodeInfo {
 	}
 }
 
+func (nI *NodeInfo) GetVirtualNodes() []string {
+	return nI.vnodes
+}
+
 type HashRing struct {
 	vnodes            *utils.AVLTree
 	nodes             map[string]*NodeInfo
 	ReplicationFactor int
+	partitions        map[string][]string
+	updated           bool
 	lock              sync.Mutex
 }
 
@@ -54,7 +60,15 @@ type HashRing struct {
 func (ring *HashRing) Initialize() {
 	ring.vnodes = &utils.AVLTree{}
 	ring.nodes = make(map[string]*NodeInfo)
-	ring.ReplicationFactor = 1 //TODO: change this for at least two?
+	ring.partitions = make(map[string][]string)
+	ring.ReplicationFactor = 1
+}
+
+/**
+ * Gets the hash ring's partitions
+ */
+func (ring *HashRing) GetPartitions() map[string][]string {
+	return ring.partitions
 }
 
 /**
@@ -150,6 +164,63 @@ func (ring *HashRing) updateRing() {
 			}
 		}
 	}
+
+	// update partitions
+
+	ring.partitions = make(map[string][]string) // map of vnodes and what nodes they write into
+	vnodes := make([]string, 0)
+
+	for _, v := range ring.GetNodes() {
+		vnodes = append(vnodes, v.GetVirtualNodes()...)
+	}
+
+	// Get what nodes have this partition
+
+	for i := 0; i < len(vnodes); i++ {
+		vnodeHash := fmt.Sprintf("%x", md5.Sum([]byte(vnodes[i])))
+
+		ring.partitions[vnodeHash] = make([]string, 0)
+
+		rawHealthynodes := ring.getHealthyNodesForID(vnodeHash)
+		healthyNodes := rawHealthynodes[:min(ring.ReplicationFactor, len(rawHealthynodes))]
+
+		for j := 0; j < len(healthyNodes); j++ {
+			// if node is in the healthy nodes then he stores this partition
+			ring.partitions[vnodes[i]] = append(ring.partitions[vnodes[i]], healthyNodes[j].Id)
+		}
+	}
+
+	// already locked, no need for locking
+	ring.updated = true
+}
+
+/**
+* Sets the ring as updated
+ */
+func (ring *HashRing) setUpdated() {
+	ring.lock.Lock()
+	ring.updated = true
+	ring.lock.Unlock()
+}
+
+/**
+* Indicates if the hash ring was recently updated
+ */
+func (ring *HashRing) WasUpdated() bool {
+	ring.lock.Lock()
+
+	wasUpdated := ring.updated
+	ring.updated = false
+
+	ring.lock.Unlock()
+
+	return wasUpdated
+}
+
+func (ring *HashRing) NodeStatusChanged() {
+	ring.lock.Lock()
+	ring.updateRing()
+	ring.lock.Unlock()
 }
 
 func (ring *HashRing) GetNodes() map[string]*NodeInfo {
@@ -227,6 +298,44 @@ func (ring *HashRing) GetHealthyNodesForID(id string) []*NodeInfo {
 	ring.lock.Unlock()
 
 	return result
+}
+
+func (ring *HashRing) GetNextHealthyVirtualNode(id string) string {
+	var hash_key string = hashId(id)
+
+	avlNode := ring.vnodes.Search(hash_key)
+
+	var firstVNodeId string = avlNode.Value
+
+	// parse virtual node name <node_name>_vnode<id>
+	parsedServerName := ring.ParseVirtualNodeID(avlNode.Value)[0]
+
+	if ring.nodes[parsedServerName].Status == NODE_OK {
+		return firstVNodeId
+	}
+
+	// Get the current key so we can find the next
+	hash_key = avlNode.GetKey()
+
+	for {
+		avlNode := ring.vnodes.Next(hash_key)
+		// Get the current key so we can find the next
+		hash_key = avlNode.GetKey()
+
+		// If the node is the first then it is looping
+		if avlNode.Value == firstVNodeId {
+			break
+		}
+
+		parsedServerName := ring.ParseVirtualNodeID(avlNode.Value)[0]
+
+		if ring.nodes[parsedServerName].Status == NODE_OK {
+			return avlNode.Value
+		}
+	}
+
+	// Only reaches this if every node is unresponsive
+	return firstVNodeId
 }
 
 // Calculates the n nodes after an id and returns them

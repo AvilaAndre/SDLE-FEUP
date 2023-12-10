@@ -22,6 +22,10 @@ func gossip() {
 		}
 
 		time.Sleep(1 * time.Second) // FIXME: This should not be like this :p
+
+		if ring.WasUpdated() {
+			checkForHintedHandoff()
+		}
 	}
 }
 
@@ -118,6 +122,8 @@ func gossipWith(node *hash_ring.NodeInfo) {
 		} else if node.DeadCounter == 3 {
 			node.Status = hash_ring.NODE_UNRESPONSIVE
 			log.Printf("%s set to UNRESPONSIVE\n", node.Id)
+			ring.NodeStatusChanged()
+
 			node.DeadCounter++
 		}
 
@@ -131,6 +137,7 @@ func gossipWith(node *hash_ring.NodeInfo) {
 		if node.Status != hash_ring.NODE_OK {
 			node.Status = hash_ring.NODE_OK
 			log.Printf("%s set to OK\n", node.Id)
+			ring.NodeStatusChanged()
 		}
 	}
 
