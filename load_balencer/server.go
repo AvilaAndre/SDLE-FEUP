@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"sdle.com/mod/hash_ring"
 	"sdle.com/mod/protocol"
 	"time"
@@ -52,18 +54,12 @@ func routeCoordenator(writer http.ResponseWriter, request *http.Request) {
 
 			node := roundRobinBalancer.SelectNodeFromList(healthyNodes)
 
-			// proxy the request to the selected node
-			body, _ := json.Marshal(target)
-			data, err := protocol.SendRequestWithData(http.MethodPost, node.Address, node.Port, "/operation", body)
-			if err != nil {
-				return
-			}
-			writer.Header().Set("Content-Type", "application/json")
-			writer.WriteHeader(data.StatusCode)
+			proxy := httputil.NewSingleHostReverseProxy(&url.URL{
+				Scheme: "http",
+				Host:   fmt.Sprintf("%s:%s", node.Address, node.Port),
+			})
 
-			//send data back to client
-			io.Copy(writer, data.Body)
-
+			proxy.ServeHTTP(writer, request)
 			return
 		}
 
@@ -87,17 +83,12 @@ func routeOperation(writer http.ResponseWriter, request *http.Request) {
 
 	node := roundRobinBalancer.SelectNodeFromList(healthyNodes)
 
-	// proxy the request to the selected node
-	body, _ := json.Marshal(target)
-	data, err := protocol.SendRequestWithData(http.MethodPost, node.Address, node.Port, "/operation", body)
-	if err != nil {
-		return
-	}
-	writer.Header().Set("Content-Type", "application/json")
-	writer.WriteHeader(data.StatusCode)
+	proxy := httputil.NewSingleHostReverseProxy(&url.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s:%s", node.Address, node.Port),
+	})
 
-	//send data back to client
-	io.Copy(writer, data.Body)
+	proxy.ServeHTTP(writer, request)
 
 	return
 }
