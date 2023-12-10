@@ -11,13 +11,14 @@ pub mod model;
 mod state;
 
 use model::*;
-use state::{AppState, ServiceAccess};
+use state::{AppState, ServerAddressRecord, ServiceAccess};
 use tauri::{AppHandle, Manager, State};
 
 fn main() {
     tauri::Builder::default()
         .manage(AppState {
             db: Default::default(),
+            address: Default::default(),
         }) //TODO: add the user new functions
         .invoke_handler(tauri::generate_handler![
             my_custom_command,
@@ -33,7 +34,9 @@ fn main() {
             publish_list,
             join_list,
             delete_list,
-            sync_list
+            sync_list,
+            get_server_address,
+            set_server_address,
         ])
         .setup(|app| {
             let handle = app.handle();
@@ -42,6 +45,7 @@ fn main() {
             let db =
                 database::initialize_database(&handle).expect("Database initialize should succeed");
             *app_state.db.lock().unwrap() = Some(db);
+            *app_state.address.lock().unwrap() = Some("localhost:9988".to_string());
 
             Ok(())
         })
@@ -190,7 +194,9 @@ fn delete_list(app_handle: AppHandle, listId: String) -> Result<bool, String> {
 #[allow(non_snake_case)]
 #[tauri::command(async)]
 fn publish_list(app_handle: AppHandle, listId: String) -> Result<bool, String> {
-    return match app_handle.db(|db| controller::publish_list(listId, db)) {
+    return match app_handle
+        .db(|db| controller::publish_list(listId, db, app_handle.get_server_address()))
+    {
         Ok(value) => Ok(value),
         Err(reason) => Err(reason.to_string()),
     };
@@ -199,7 +205,9 @@ fn publish_list(app_handle: AppHandle, listId: String) -> Result<bool, String> {
 #[allow(non_snake_case)]
 #[tauri::command(async)]
 fn join_list(app_handle: AppHandle, listId: String) -> Result<String, String> {
-    return match app_handle.db(|db| controller::join_list(listId, db)) {
+    return match app_handle
+        .db(|db| controller::join_list(listId, db, app_handle.get_server_address()))
+    {
         Ok(value) => Ok(value),
         Err(reason) => Err(reason.to_string()),
     };
@@ -208,8 +216,20 @@ fn join_list(app_handle: AppHandle, listId: String) -> Result<String, String> {
 #[allow(non_snake_case)]
 #[tauri::command(async)]
 fn sync_list(app_handle: AppHandle, listId: String) -> Result<String, String> {
-    return match app_handle.db(|db| controller::sync_list(listId, db)) {
+    return match app_handle
+        .db(|db| controller::sync_list(listId, db, app_handle.get_server_address()))
+    {
         Ok(value) => Ok(value),
         Err(reason) => Err(reason.to_string()),
     };
+}
+
+#[tauri::command]
+fn get_server_address(app_handle: AppHandle) -> String {
+    return app_handle.get_server_address();
+}
+
+#[tauri::command]
+fn set_server_address(app_handle: AppHandle, address: String) {
+    app_handle.set_server_address(address)
 }
