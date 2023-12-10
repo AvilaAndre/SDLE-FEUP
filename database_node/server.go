@@ -30,6 +30,8 @@ func startServer(serverPort string, serverRunning chan bool) {
 
 	go gossip()
 
+	go hintedHandoff()
+
 	err := http.ListenAndServe(fmt.Sprintf(":%s", serverPort), nil)
 
 	if errors.Is(err, http.ErrServerClosed) {
