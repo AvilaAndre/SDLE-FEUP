@@ -1,6 +1,7 @@
 use std::fs;
 use tauri::AppHandle;
 use unqlite::{Cursor, Transaction, UnQLite, KV};
+use uuid::Uuid;
 
 use crate::{model::*, unwrap_or_return, unwrap_or_return_with};
 
@@ -21,6 +22,10 @@ pub fn initialize_database(app_handle: &AppHandle) -> Result<UnQLite, &'static s
 }
 
 pub trait Operation {
+    fn get_my_uuid(&self) -> Result<Uuid, &'static str>;
+
+    fn set_my_uuid(&self, new_uuid: String) -> Result<String, &'static str>;
+
     fn has_key(&self, key: String) -> bool;
 
     fn store(
@@ -134,5 +139,31 @@ impl Operation for UnQLite {
 
         let _ = self.commit();
         return Ok(true);
+    }
+
+    fn get_my_uuid(&self) -> Result<Uuid, &'static str> {
+        let result: Vec<u8> = unwrap_or_return_with!(
+            self.kv_fetch("uuid"),
+            Err("Failed to find list with the given id")
+        );
+
+        Ok(unwrap_or_return_with!(
+            Uuid::parse_str(&unwrap_or_return_with!(
+                String::from_utf8(result),
+                Err("from utf8 error")
+            )),
+            Err("utf8 error")
+        ))
+    }
+
+    fn set_my_uuid(&self, new_uuid: String) -> Result<String, &'static str> {
+        unwrap_or_return_with!(
+            self.kv_store("uuid", new_uuid.clone()),
+            Err("failed to store uuid")
+        );
+
+        let _ = self.commit();
+
+        Ok(new_uuid)
     }
 }
