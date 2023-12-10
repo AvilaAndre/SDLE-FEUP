@@ -3,6 +3,7 @@ use unqlite::UnQLite;
 
 pub struct AppState {
     pub db: std::sync::Mutex<Option<UnQLite>>,
+    pub address: std::sync::Mutex<Option<String>>,
 }
 
 pub trait ServiceAccess {
@@ -36,5 +37,26 @@ impl ServiceAccess for AppHandle {
         let db = db_connection_guard.as_mut().unwrap();
 
         operation(db)
+    }
+}
+
+pub trait ServerAddressRecord {
+    fn get_server_address(&self) -> String;
+    fn set_server_address(&self, new_address: String);
+}
+
+impl ServerAddressRecord for AppHandle {
+    fn get_server_address(&self) -> String {
+        let app_state: State<AppState> = self.state();
+
+        let address: String = app_state.address.lock().unwrap().as_ref().unwrap().clone();
+
+        return address;
+    }
+
+    fn set_server_address(&self, new_address: String) {
+        let app_state: State<AppState> = self.state();
+
+        *app_state.address.lock().unwrap() = Some(new_address);
     }
 }
