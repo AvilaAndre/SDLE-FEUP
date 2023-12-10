@@ -1,30 +1,35 @@
 package load_balencer
 
 import (
-	"sdle.com/mod/protocol"
-	"sdle.com/mod/utils"
-	"sdle.com/mod/hash_ring"
-	"sdle.com/mod/database_node"
 )
 
-func getPing(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	W.Header().Set("Content-Type", "application/json")
-	resp := make(map[string]string)
-	resp["message"] = "pong"
-	jsonResp, err := json.Marshal(resp)
-	if err != nil {
-		log.Fatalf("Error happened in JSON marshal. Err: %s", err)
-	}
-	w.Write(jsonResp)
+type LoadBalencer struct {
+	address string
+	port string
 }
 
-func getHealthyNodesForID(listId string) []*hash_ring.NodeInfo {
-	healthyNodes := ring.GetHealthyNodesForID(listId)
+func (lb *LoadBalencer) Initialize(address string, port string) {
+	lb.address = address
+	lb.port = port
+}
 
-	var healthyNodesStack utils.Stack
+func (lb *LoadBalencer) Start() {
+	serverRunning := make(chan bool)
+	lb.startServer(lb.port, serverRunning)
+	<-serverRunning // waits for the server to close
+}
 
-	// Scrambles N first healthy replicas so a quorum can be performed for this key
-	rand.Shuffle(min(len(healthyNodes), replicationFactor), func(i, j int) { healthyNodes[i], healthyNodes[j] = healthyNodes[j], healthyNodes[i] })
+func (lb *LoadBalencer) startServer(serverPort string, serverRunning chan bool) {
 
+
+	err := http.ListenAndServe(fmt.Sprintf(":%s", serverPort), nil)
+
+	if errors.Is(err, http.ErrServerClosed) {
+		log.Printf("server closed")
+	} else if err != nil {
+		log.Printf("error starting server: %s\n", err)
+	}
+
+	serverRunning <- true
+	
 }
