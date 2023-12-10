@@ -494,6 +494,7 @@ func NewShoppingList() *ShoppingList {
 func generateNodeID() string {
 	return uuid.New().String()
 }
+
 // Use boolean and u32 like in the Rust version ?
 // AddOrUpdateItem adds or updates an item in the shopping list.
 func (l *ShoppingList) AddOrUpdateItem(itemName string, quantityChange int) {
@@ -565,6 +566,146 @@ func (l *ShoppingList) Clone() *ShoppingList {
 	// Copy items from the original ShoppingList to the clone
 	for itemName, counter := range l.Items {
 		clone.Items[itemName] = counter.Clone()
+	}
+
+	return clone
+}
+
+// ShoppingListV2 represents a shopping list with CRDT support.
+type ShoppingListV2 struct {
+	NodeID         string                       `json:"node_id"`
+	NeededItems    map[string]*BoundedPNCounter `json:"items"`
+	PurchasedItems map[string]*BoundedPNCounter `json:"items"`
+	AwSet          *AWSet                       `json:"awset"`
+}
+
+// NewShoppingListV2 creates a new ShoppingListV2.
+func NewShoppingListV2() *ShoppingListV2 {
+	return &ShoppingListV2{
+		NodeID:         generateNodeID(),
+		NeededItems:    make(map[string]*BoundedPNCounter),
+		PurchasedItems: make(map[string]*BoundedPNCounter),
+		AwSet:          NewAWSet(),
+	}
+}
+
+// Use boolean and u32 like in the Rust version ?
+// AddOrUpdateItem adds or updates an item in the shopping list.
+func (l *ShoppingListV2) AddOrUpdateItem(itemName string, quantityChange int) {
+
+	if _, ok := l.NeededItems[itemName]; !ok {
+		l.NeededItems[itemName] = NewBoundedPNCounter()
+	}
+
+	if quantityChange < 0 {
+		l.NeededItems[itemName].Decrement(l.NodeID, uint32(-quantityChange))
+		l.AwSet.AddI(itemName, l.NodeID)
+	} else if quantityChange > 0 {
+		l.NeededItems[itemName].Increment(l.NodeID, uint32(quantityChange))
+		l.AwSet.AddI(itemName, l.NodeID)
+	}
+}
+
+// PurchaseItem adds or updates an item in the shopping list.
+func (l *ShoppingListV2) PurchaseItem(itemName string, quantityChange int) {
+
+	if _, ok := l.PurchasedItems[itemName]; !ok {
+		l.PurchasedItems[itemName] = NewBoundedPNCounter()
+	}
+
+	if quantityChange < 0 {
+		l.PurchasedItems[itemName].Decrement(l.NodeID, uint32(-quantityChange))
+		l.AwSet.AddI(itemName, l.NodeID)
+
+	} else if quantityChange > 0 {
+		l.PurchasedItems[itemName].Increment(l.NodeID, uint32(quantityChange))
+		l.AwSet.AddI(itemName, l.NodeID)
+
+		l.NeededItems[itemName].Decrement(l.NodeID, uint32(quantityChange))
+		l.AwSet.AddI(itemName, l.NodeID)
+	}
+}
+
+// RemoveItem removes an item from the shopping list.
+func (l *ShoppingListV2) RemoveItem(itemName string) {
+
+	l.AwSet.RmvI(itemName)
+	delete(l.NeededItems, itemName)
+	delete(l.PurchasedItems, itemName)
+}
+
+// Merge merges two shopping lists.
+func (l *ShoppingListV2) Merge(incList *ShoppingListV2) {
+
+	l.AwSet.Merge(incList.AwSet)
+
+	// Merge items based on the merged AWSet
+	for _, itemName := range l.AwSet.Elements() {
+		selfItem, selfExists := l.NeededItems[itemName]
+		incItem, incExists := incList.NeededItems[itemName]
+
+		if selfExists && incExists {
+			l.NeededItems[itemName] = selfItem.Merge(incItem)
+		} else if incExists {
+			l.NeededItems[itemName] = incItem
+		} else {
+			// If the item only exists in one list, use that item
+			l.NeededItems[itemName] = selfItem
+		}
+	}
+	for _, itemName := range l.AwSet.Elements() {
+		selfItem, selfExists := l.PurchasedItems[itemName]
+		incItem, incExists := incList.PurchasedItems[itemName]
+
+		if selfExists && incExists {
+			l.PurchasedItems[itemName] = selfItem.Merge(incItem)
+		} else if incExists {
+			l.PurchasedItems[itemName] = incItem
+		} else {
+			// If the item only exists in one list, use that item
+			l.PurchasedItems[itemName] = selfItem
+		}
+	}
+}
+
+// GetItems returns the Names of all items in the shopping list.
+func (l *ShoppingListV2) GetItems() []string {
+
+	return l.AwSet.Elements()
+}
+
+// GetItemQuantity returns the quantity of an item in the shopping list. If the item does not exist, the second return is false.
+func (l *ShoppingListV2) GetItemQuantityNeeded(itemName string) (int32, bool) {
+	if !l.AwSet.Contains(itemName) {
+		return 0, false
+	}
+	return l.NeededItems[itemName].Value(), true
+}
+
+// GetItemQuantity returns the quantity of an item in the shopping list. If the item does not exist, the second return is false.
+func (l *ShoppingListV2) GetItemQuantityPurchased(itemName string) (int32, bool) {
+	if !l.AwSet.Contains(itemName) {
+		return 0, false
+	}
+	return l.PurchasedItems[itemName].Value(), true
+}
+
+// Clone creates a deep copy of the ShoppingListV2.
+func (l *ShoppingListV2) Clone() *ShoppingListV2 {
+	// Create a new ShoppingListV2 with the same NodeID
+	clone := &ShoppingListV2{
+		NodeID:         l.NodeID,
+		PurchasedItems: make(map[string]*BoundedPNCounter),
+		NeededItems:    make(map[string]*BoundedPNCounter),
+		AwSet:          l.AwSet.Clone(),
+	}
+
+	// Copy items from the original ShoppingListV2 to the clone
+	for itemName, counter := range l.PurchasedItems {
+		clone.PurchasedItems[itemName] = counter.Clone()
+	}
+	for itemName, counter := range l.NeededItems {
+		clone.NeededItems[itemName] = counter.Clone()
 	}
 
 	return clone
