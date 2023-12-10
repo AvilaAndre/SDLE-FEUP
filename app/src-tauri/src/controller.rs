@@ -230,7 +230,11 @@ pub fn item_check(list_id: String, item_name: String, db: &UnQLite) -> Result<bo
     )));
 }
 
-pub fn publish_list(list_id: String, db: &UnQLite) -> Result<bool, &'static str> {
+pub fn publish_list(
+    list_id: String,
+    db: &UnQLite,
+    server_address: String,
+) -> Result<bool, &'static str> {
     let list: ShoppingListData = unwrap_or_return!(db.get_list(list_id.clone()));
 
     #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -239,10 +243,10 @@ pub fn publish_list(list_id: String, db: &UnQLite) -> Result<bool, &'static str>
         content: ShoppingList,
     }
 
-    let request_url = "http://localhost:9988/list";
+    let request_url = format!("http://{}/list", server_address);
     let response = unwrap_or_return_with!(
         Client::new()
-            .put(request_url)
+            .put(&request_url)
             .json(&json!(&List {
                 list_id: list_id.clone(),
                 content: list.crdt,
@@ -262,16 +266,20 @@ pub fn publish_list(list_id: String, db: &UnQLite) -> Result<bool, &'static str>
     }
 }
 
-pub fn join_list(list_id: String, db: &UnQLite) -> Result<String, &'static str> {
+pub fn join_list(
+    list_id: String,
+    db: &UnQLite,
+    server_address: String,
+) -> Result<String, &'static str> {
     #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
     struct List {
         list_id: String,
     }
 
-    let request_url = "http://localhost:9988/list";
+    let request_url = format!("http://{}/list", server_address);
     let response = unwrap_or_return_with!(
         Client::new()
-            .post(request_url)
+            .post(&request_url)
             .json(&json!(&List {
                 list_id: list_id.clone(),
             }))
@@ -358,16 +366,20 @@ pub fn join_list(list_id: String, db: &UnQLite) -> Result<String, &'static str> 
     }
 }
 
-pub fn sync_list(list_id: String, db: &UnQLite) -> Result<String, &'static str> {
+pub fn sync_list(
+    list_id: String,
+    db: &UnQLite,
+    server_address: String,
+) -> Result<String, &'static str> {
     #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
     struct List {
         list_id: String,
     }
 
-    let request_url = "http://localhost:9988/list";
+    let request_url = format!("http://{}/list", server_address);
     let response = unwrap_or_return_with!(
         Client::new()
-            .post(request_url)
+            .post(&request_url)
             .json(&json!(&List {
                 list_id: list_id.clone(),
             }))

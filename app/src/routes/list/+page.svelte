@@ -11,7 +11,6 @@
     import ListItem from "$lib/components/ListItem.svelte";
     import { typewatch } from "../../utils/typewatch";
     import { crdtToShoppingList } from "$lib/crdt/translator";
-    import { list } from "postcss";
 
     export let data: ShoppingListData;
 
