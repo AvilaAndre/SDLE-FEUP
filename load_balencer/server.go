@@ -204,14 +204,21 @@ func encodeRingState() []byte {
 }
 
 func sendToRoundRobinBalancer(address string, port string) {
-	node := roundRobinBalancer.SelectNode()
+	var1 := ring.GetNodes()
+	nodes := make([]*hash_ring.NodeInfo, 0)
+	for _, value := range var1 {
+		if value.Status != hash_ring.NODE_UNRESPONSIVE {
+			nodes = append(nodes, value)
+		}
+	}
+	node := roundRobinBalancer.SelectNodeFromList(nodes)
 
 	target := make(map[string]string)
 	target["address"] = address
 	target["port"] = port
 	j, _ := json.Marshal(target)
 
-	data, err := protocol.SendRequestWithData(http.MethodPut, node.add, node.port, "/node/add", j)
+	data, err := protocol.SendRequestWithData(http.MethodPut, node.Address, node.Port, "/node/add", j)
 	if err != nil {
 		return
 	}
