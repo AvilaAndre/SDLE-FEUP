@@ -42,7 +42,7 @@ func newNodeInfo(address string, port string, status NodeStatus) *NodeInfo {
 }
 
 func (nI *NodeInfo) GetVirtualNodes() []string {
-	return nI.vnodes
+	return nI.Vnodes
 }
 
 type HashRing struct {
@@ -301,7 +301,7 @@ func (ring *HashRing) GetHealthyNodesForID(id string) []*NodeInfo {
 }
 
 func (ring *HashRing) GetNextHealthyVirtualNode(id string) string {
-	var hash_key string = hashId(id)
+	var hash_key string = HashId(id)
 
 	avlNode := ring.vnodes.Search(hash_key)
 

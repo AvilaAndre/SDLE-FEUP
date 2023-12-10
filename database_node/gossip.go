@@ -185,7 +185,7 @@ func gossipAntiEntropyWith(node *hash_ring.NodeInfo,  numb_tries int64) {
 		if node.Status != hash_ring.NODE_OK {
 			node.Status = hash_ring.NODE_OK
 			log.Printf("Node %s is OK\n", node.Id)
-			log.Printf("Received anti-entropy data from node %s\n")
+			log.Printf("Received anti-entropy data from node \n")
 		}
 
 		handleSuccessfulPullPushResponse(node, response_from_pull)
@@ -203,7 +203,7 @@ func gossipAntiEntropyWith(node *hash_ring.NodeInfo,  numb_tries int64) {
 
 
 func handleCommunicationError(node *hash_ring.NodeInfo) {
-    fmt.Println("SendRequestData with dotContext failed to node %s: %s", node.Port)
+	fmt.Printf("SendRequestData with dotContext failed to node %s\n", node.Port)
 }
 
 func handleSuccessfulPullPushResponse(node *hash_ring.NodeInfo, response *http.Response) {

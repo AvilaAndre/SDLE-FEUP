@@ -193,89 +193,8 @@ func (db *DatabaseInstance) deleteValue(key []byte) bool {
 	return true
 }
 
-/**
-* Deletes a shopping list from the database
- */
-func (db *DatabaseInstance) deleteList(key string) bool {
-	db.lock.Lock()
-	success := db.deleteValue([]byte(key))
-	db.lock.Unlock()
 
-	return success
-}
 
-/**
-* Deletes a key from the database
- */
-func (db *DatabaseInstance) deleteValue(key []byte) bool {
-	log.Println("delete list", string(key))
-
-	if db.conn.Delete([]byte(key)) != nil {
-		return false
-	}
-
-	if db.conn.Commit() != nil {
-		return false
-	}
-
-	return true
-}
-
-/**
-* Deletes a shopping list from the database
- */
-func (db *DatabaseInstance) deleteList(key string) bool {
-	db.lock.Lock()
-	success := db.deleteValue([]byte(key))
-	db.lock.Unlock()
-
-	return success
-}
-
-/**
-* Deletes a key from the database
- */
-func (db *DatabaseInstance) deleteValue(key []byte) bool {
-	log.Println("delete list", string(key))
-
-	if db.conn.Delete([]byte(key)) != nil {
-		return false
-	}
-
-	if db.conn.Commit() != nil {
-		return false
-	}
-
-	return true
-}
-
-/**
-* Deletes a shopping list from the database
- */
-func (db *DatabaseInstance) deleteList(key string) bool {
-	db.lock.Lock()
-	success := db.deleteValue([]byte(key))
-	db.lock.Unlock()
-
-	return success
-}
-
-/**
-* Deletes a key from the database
- */
-func (db *DatabaseInstance) deleteValue(key []byte) bool {
-	log.Println("delete list", string(key))
-
-	if db.conn.Delete([]byte(key)) != nil {
-		return false
-	}
-
-	if db.conn.Commit() != nil {
-		return false
-	}
-
-	return true
-}
 
 // TODO: check if updateOrSetListsIdDotContents is used properly and works as expected
 //Logic for anti-entropy
