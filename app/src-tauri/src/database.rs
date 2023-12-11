@@ -119,7 +119,12 @@ impl Operation for UnQLite {
             }
 
             let record = entry.expect("valid entry");
-            let (_key, value) = record.key_value();
+            let (key, value) = record.key_value();
+
+            if String::from_utf8(key) == Ok("uuid".to_string()) {
+                entry = record.next();
+                continue;
+            }
 
             let obj: ShoppingListData =
                 serde_json::from_slice::<ShoppingListData>(&value).expect("Failed to deserialize");
