@@ -47,10 +47,30 @@ func routeCoordenator(writer http.ResponseWriter, request *http.Request) {
 
 			var listId string = target["list_id"]
 
-			// The coordenator, upon receiving a read, reads locally and performs a read quorum
-			// however, this coordenator may not be a holder of this information, in this case
-			// it only performs the read quorum
 			healthyNodes := ring.GetHealthyNodesForID(listId)
+
+			node := roundRobinBalancer.SelectNodeFromList(healthyNodes)
+
+			proxy := httputil.NewSingleHostReverseProxy(&url.URL{
+				Scheme: "http",
+				Host:   fmt.Sprintf("%s:%s", node.Address, node.Port),
+			})
+
+			proxy.ServeHTTP(writer, request)
+			return
+		}
+
+	case http.MethodPut:
+		{
+			var target protocol.ShoppingListOperation
+
+			decoded, target := protocol.DecodeRequestBody(writer, request.Body, target)
+
+			if !decoded {
+				return
+			}
+
+			healthyNodes := ring.GetHealthyNodesForID(target.ListId)
 
 			node := roundRobinBalancer.SelectNodeFromList(healthyNodes)
 
@@ -67,30 +87,56 @@ func routeCoordenator(writer http.ResponseWriter, request *http.Request) {
 }
 
 func routeOperation(writer http.ResponseWriter, request *http.Request) {
-	target := make(map[string]string)
-	decoded, target := protocol.DecodeRequestBody(writer, request.Body, target)
+	switch request.Method {
+	case http.MethodPost:
+		{
+			target := make(map[string]string)
+			decoded, target := protocol.DecodeRequestBody(writer, request.Body, target)
 
-	if !decoded {
-		return
+			if !decoded {
+				return
+			}
+
+			var listId string = target["list_id"]
+
+			healthyNodes := ring.GetHealthyNodesForID(listId)
+
+			node := roundRobinBalancer.SelectNodeFromList(healthyNodes)
+
+			proxy := httputil.NewSingleHostReverseProxy(&url.URL{
+				Scheme: "http",
+				Host:   fmt.Sprintf("%s:%s", node.Address, node.Port),
+			})
+
+			proxy.ServeHTTP(writer, request)
+
+			return
+
+		}
+	case http.MethodPut:
+		{
+			var target protocol.ShoppingListOperation
+
+			decoded, target := protocol.DecodeRequestBody(writer, request.Body, target)
+
+			if !decoded {
+				return
+			}
+
+			healthyNodes := ring.GetHealthyNodesForID(target.ListId)
+
+			node := roundRobinBalancer.SelectNodeFromList(healthyNodes)
+
+			proxy := httputil.NewSingleHostReverseProxy(&url.URL{
+				Scheme: "http",
+				Host:   fmt.Sprintf("%s:%s", node.Address, node.Port),
+			})
+
+			proxy.ServeHTTP(writer, request)
+
+			return
+		}
 	}
-
-	var listId string = target["list_id"]
-
-	// The coordenator, upon receiving a read, reads locally and performs a read quorum
-	// however, this coordenator may not be a holder of this information, in this case
-	// it only performs the read quorum
-	healthyNodes := ring.GetHealthyNodesForID(listId)
-
-	node := roundRobinBalancer.SelectNodeFromList(healthyNodes)
-
-	proxy := httputil.NewSingleHostReverseProxy(&url.URL{
-		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%s", node.Address, node.Port),
-	})
-
-	proxy.ServeHTTP(writer, request)
-
-	return
 }
 
 func gossip() {
