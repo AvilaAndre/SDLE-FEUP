@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,9 +10,10 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
+
 	"sdle.com/mod/hash_ring"
 	"sdle.com/mod/protocol"
-	"time"
 )
 
 func registerRoutes() {
@@ -39,7 +41,14 @@ func routeCoordenator(writer http.ResponseWriter, request *http.Request) {
 	case http.MethodPost:
 		{
 			target := make(map[string]string)
-			decoded, target := protocol.DecodeRequestBody(writer, request.Body, target)
+
+			buf, _ := io.ReadAll(request.Body)
+			rdr1 := io.NopCloser(bytes.NewBuffer(buf))
+			rdr2 := io.NopCloser(bytes.NewBuffer(buf))
+
+			request.Body = rdr2
+
+			decoded, target := protocol.DecodeRequestBody(writer, rdr1, target)
 
 			if !decoded {
 				return
@@ -64,7 +73,13 @@ func routeCoordenator(writer http.ResponseWriter, request *http.Request) {
 		{
 			var target protocol.ShoppingListOperation
 
-			decoded, target := protocol.DecodeRequestBody(writer, request.Body, target)
+			buf, _ := io.ReadAll(request.Body)
+			rdr1 := io.NopCloser(bytes.NewBuffer(buf))
+			rdr2 := io.NopCloser(bytes.NewBuffer(buf))
+
+			request.Body = rdr2
+
+			decoded, target := protocol.DecodeRequestBody(writer, rdr1, target)
 
 			if !decoded {
 				return
