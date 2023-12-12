@@ -15,7 +15,7 @@ var ring hash_ring.HashRing
 
 var database DatabaseInstance
 
-const replicationFactor int = 5//TODO: change this value to 2 ?
+
 
 func main() {
 	

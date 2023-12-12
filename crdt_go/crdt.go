@@ -574,8 +574,8 @@ func (l *ShoppingList) Clone() *ShoppingList {
 // ShoppingListV2 represents a shopping list with CRDT support.
 type ShoppingListV2 struct {
 	NodeID         string                       `json:"node_id"`
-	NeededItems    map[string]*BoundedPNCounter `json:"items"`
-	PurchasedItems map[string]*BoundedPNCounter `json:"items"`
+	NeededItems    map[string]*BoundedPNCounter `json:"needed"`
+	PurchasedItems map[string]*BoundedPNCounter `json:"purchased"`
 	AwSet          *AWSet                       `json:"awset"`
 }
 

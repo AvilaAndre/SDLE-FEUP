@@ -12,10 +12,21 @@ pub fn initialize_database(app_handle: &AppHandle) -> Result<UnQLite, &'static s
         .path_resolver()
         .app_data_dir()
         .expect("The app data directory should exist.");
-    fs::create_dir_all(&app_dir).expect("The app data directory should be created.");
-    let unqlite_path = app_dir.join("shopping_list.db");
+   
+    
 
-    println!("database location {:?}", unqlite_path);
+    fs::create_dir_all(&app_dir).expect("The app data directory should be created.");
+
+   
+    let unique_id = Uuid::new_v4();
+
+    
+    let db_file_name = format!("shopping_list_{}.db", unique_id);
+
+    
+    let unqlite_path = app_dir.join(db_file_name);
+
+    println!("Database location {:?}", unqlite_path);
     let db = UnQLite::create(unqlite_path.into_os_string().into_string().unwrap());
 
     Ok(db)
