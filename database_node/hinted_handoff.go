@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"slices"
 	"strings"
@@ -21,7 +22,12 @@ func hintedHandoff() {
 		if listsToRealocate.Size() > 0 {
 
 			// utils.Stack
+			//Print the message I am doing hinted handoff
+			log.Println("I am inside method  HINTED-OFF, listToRealocate:",  listsToRealocate,", Size of list: ",listsToRealocate.Size())
 
+
+			//Print the lists that are going to be reallocated
+			
 			writeChan := make(chan struct {
 				string
 				bool
@@ -68,6 +74,7 @@ func hintedHandoff() {
 				}
 			}
 		}
+		log.Println("One ITERATION OF HINTED HANDOFF FINISHED")
 
 		time.Sleep(10 * time.Second)
 	}
