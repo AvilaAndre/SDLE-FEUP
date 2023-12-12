@@ -53,7 +53,7 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 			var healthyNodesStack utils.Stack[*hash_ring.NodeInfo]
 
 			// Scrambles N first healthy replicas so a quorum can be performed for this key
-			rand.Shuffle(min(len(healthyNodes), replicationFactor), func(i, j int) { healthyNodes[i], healthyNodes[j] = healthyNodes[j], healthyNodes[i] })
+			rand.Shuffle(min(len(healthyNodes), ring.ReplicationFactor), func(i, j int) { healthyNodes[i], healthyNodes[j] = healthyNodes[j], healthyNodes[i] })
 
 			for i := 0; i < len(healthyNodes); i++ {
 				healthyNodesStack.Push(healthyNodes[i])
@@ -184,7 +184,7 @@ func handleCoordenator(w http.ResponseWriter, r *http.Request) {
 			var healthyNodesStack utils.Stack[*hash_ring.NodeInfo]
 
 			// Scrambles N first healthy replicas so a quorum can be performed for this key
-			rand.Shuffle(min(len(healthyNodes), replicationFactor), func(i, j int) { healthyNodes[i], healthyNodes[j] = healthyNodes[j], healthyNodes[i] })
+			rand.Shuffle(min(len(healthyNodes), ring.ReplicationFactor), func(i, j int) { healthyNodes[i], healthyNodes[j] = healthyNodes[j], healthyNodes[i] })
 
 			for i := 0; i < len(healthyNodes); i++ {
 				healthyNodesStack.Push(healthyNodes[i])
@@ -281,13 +281,30 @@ func handleOperation(w http.ResponseWriter, r *http.Request) {
 		var target protocol.ShoppingListOperation
 
 		crdtErr, target := protocol.DecodeRequestBody(w, r.Body, target)
+		
+		log.Println("I am inside method", r.Method, "request","on Operation handler " ,"and I am on write operation")
 
 		if !crdtErr {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Failed to unmarshall CRDT"))
+			
+			fmt.Println("Error when Decoding Request Body from write operation")
 			return
 		}
 		// Write the information received in this machine
+		fmt.Println("I am going to update or set a shopping list" , "id: ", target.ListId, "content: ", target.Content)
+
+
+
+		if(target.ListId == "lists_id_dot_contents"){
+			//Print message to the user
+			fmt.Println("We are going to update or set the lists_id_dot_contents on the database")
+			
+		}else{
+			//Print message to the user
+			fmt.Println("We are going to update or set a shopping list on the database")
+		}
+		
 		database.updateOrSetShoppingList(target.ListId, target.Content)
 	}
 }
@@ -362,7 +379,7 @@ func sendReadAndWait(address string, port string, payload map[string]string, rea
             return
         }
 		// No response or the response is invalid
-        if len(listsIdDotContents) == 0 {
+        if len(listsIdDotContents) == 0 || listsIdDotContents == nil {
             // No list_id_dot_contents found
             readChan <- readChanStructForDotContext{2, nil, address, port}
             return
@@ -378,6 +395,8 @@ func sendReadAndWait(address string, port string, payload map[string]string, rea
 	
 	
 }
+
+
 
 // Returns true if successful, false if not
 func sendWriteAndWait(address string, port string, payload protocol.ShoppingListOperation, writeChan chan bool) {

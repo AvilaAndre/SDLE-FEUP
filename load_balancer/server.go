@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -16,6 +17,7 @@ import (
 	"sdle.com/mod/protocol"
 )
 
+var threshold = 0.4 // Threshold for bounded consistent hashing
 func registerRoutes() {
 	http.HandleFunc("/operation", routeOperation)
 	http.HandleFunc("/list", routeCoordenator)
@@ -39,7 +41,9 @@ func startServer(serverRunning chan bool) {
 func routeCoordenator(writer http.ResponseWriter, request *http.Request) {
 	switch request.Method {
 	case http.MethodPost:
-		{
+		{	
+			// Print on Function routeCoordenator MethodPost
+			fmt.Println("routeCoordenator MethodPost")
 			target := make(map[string]string)
 
 			buf, _ := io.ReadAll(request.Body)
@@ -56,21 +60,44 @@ func routeCoordenator(writer http.ResponseWriter, request *http.Request) {
 
 			var listId string = target["list_id"]
 
+			// the healthyNodes are the nodes that are alive and they by order on the healthyNodes array from the ring
+			
 			healthyNodes := ring.GetHealthyNodesForID(listId)
+			// so we get the first node from the healthyNodes array ( the first on encounter on the ring for list_id)
+			if len(healthyNodes) == 0 {
+				writer.WriteHeader(http.StatusNotFound)
+				return
+			}
+			consistentHashNode := healthyNodes[0]
 
-			node := roundRobinBalancer.SelectNodeFromList(healthyNodes)
+			fmt.Println("list_id to get the node using consistent hashing: ", listId)
+			
+			fmt.Println("Getted consistentHashNode: ", consistentHashNode)
+			//print the healthyNodes
+			fmt.Println("Getted healthyNodes: ", healthyNodes)
+			fmt.Println("Getted consistentHashNode: ", healthyNodes[0])
+			//print the healthyNodes
+			// enter the bounded consistent hashing selection on SelectNodeFromList
+			
+			cons_hash_req_count_node := roundRobinBalancer.requestCount[healthyNodes[0].Id]
+			// print the request count of the node
+			fmt.Println("request count of node: ", cons_hash_req_count_node,"from node: ", healthyNodes[0].Id)
 
+			node := roundRobinBalancer.SelectNodeFromList(healthyNodes,threshold,cons_hash_req_count_node)
+			roundRobinBalancer.IncrementRequestCount(node.Id)
 			proxy := httputil.NewSingleHostReverseProxy(&url.URL{
 				Scheme: "http",
 				Host:   fmt.Sprintf("%s:%s", node.Address, node.Port),
 			})
-
+			
 			proxy.ServeHTTP(writer, request)
 			return
 		}
 
 	case http.MethodPut:
-		{
+		{	
+			// Print on Function routeOperation MethodPut
+			fmt.Println("routeCoordenator MethodPut")
 			var target protocol.ShoppingListOperation
 
 			buf, _ := io.ReadAll(request.Body)
@@ -84,16 +111,46 @@ func routeCoordenator(writer http.ResponseWriter, request *http.Request) {
 			if !decoded {
 				return
 			}
-
+			
+			fmt.Println("list_id to get the node using consistent hashing: ", target.ListId)
+			// the healthyNodes are the nodes that are alive and they by order on the healthyNodes array from the ring
+			
 			healthyNodes := ring.GetHealthyNodesForID(target.ListId)
+			// print len of healthyNodes
+			fmt.Println("len of healthyNodes: ", len(healthyNodes))
+			if len(healthyNodes) == 0 {
+				// print if the len of healthyNodes is 0 then return 404
+				fmt.Println("len of healthyNodes is 0 then return 404")
+				writer.WriteHeader(http.StatusNotFound)
+				return
+			}
+			// so we get the first node from the healthyNodes array ( the first on encounter on the ring for list_id)
+			
+			
 
-			node := roundRobinBalancer.SelectNodeFromList(healthyNodes)
+			// print the list_id to determine the node using consistent hashing
+			fmt.Println("list_id to get the node using consistent hashing: ", target.ListId)
+			
+			fmt.Println("Getted healthyNodes: ", healthyNodes)
+			fmt.Println("Getted consistentHashNode: ", healthyNodes[0])
+			//print the healthyNodes
+			// enter the bounded consistent hashing selection on SelectNodeFromList
+			
+			cons_hash_req_count_node := roundRobinBalancer.requestCount[healthyNodes[0].Id]
+			// print the request count of the node
+			fmt.Println("request count of node: ", cons_hash_req_count_node,"from node: ", healthyNodes[0].Id)
 
+			node := roundRobinBalancer.SelectNodeFromList(healthyNodes,threshold,cons_hash_req_count_node)
+			// print the node selected
+			fmt.Println("Chosen Getted inside Coordenator Method Put node: ", node)
+			//print node address and port
+			fmt.Println("Chosen Getted inside Coordenator Method Put node address: ", node.Address, " and port: ", node.Port)
+			roundRobinBalancer.IncrementRequestCount(node.Id)
 			proxy := httputil.NewSingleHostReverseProxy(&url.URL{
 				Scheme: "http",
 				Host:   fmt.Sprintf("%s:%s", node.Address, node.Port),
 			})
-
+			
 			proxy.ServeHTTP(writer, request)
 			return
 		}
@@ -102,9 +159,14 @@ func routeCoordenator(writer http.ResponseWriter, request *http.Request) {
 }
 
 func routeOperation(writer http.ResponseWriter, request *http.Request) {
+	rand.Seed(time.Now().UnixNano())//enforce random seed for each request to avoid same node selection "random pattern" for each request
+	
 	switch request.Method {
 	case http.MethodPost:
-		{
+		{	
+
+			// Print on Function routeOperation MethodPost
+			fmt.Println("routeOperation MethodPost")
 			target := make(map[string]string)
 			decoded, target := protocol.DecodeRequestBody(writer, request.Body, target)
 
@@ -114,22 +176,47 @@ func routeOperation(writer http.ResponseWriter, request *http.Request) {
 
 			var listId string = target["list_id"]
 
+			
+			// the healthyNodes are the nodes that are alive and they by order on the healthyNodes array from the ring
 			healthyNodes := ring.GetHealthyNodesForID(listId)
+			if len(healthyNodes) == 0 {
+				writer.WriteHeader(http.StatusNotFound)
+				return
+			}
+			// so we get the first node from the healthyNodes array ( the first on encounter on the ring for list_id)
+			
+			
+			
+			fmt.Println("list_id to get the node using consistent hashing: ", listId)
+			
+			fmt.Println("Getted consistentHashNode: ", healthyNodes[0])
+			//print the healthyNodes
+			// enter the bounded consistent hashing selection on SelectNodeFromList
+			
+			cons_hash_req_count_node := roundRobinBalancer.requestCount[healthyNodes[0].Id]
+			// print the request count of the node
+			fmt.Println("request count of node: ", cons_hash_req_count_node,"from node: ", healthyNodes[0].Id)
 
-			node := roundRobinBalancer.SelectNodeFromList(healthyNodes)
-
+			node := roundRobinBalancer.SelectNodeFromList(healthyNodes,threshold,cons_hash_req_count_node)
+			
+			roundRobinBalancer.IncrementRequestCount(node.Id)
 			proxy := httputil.NewSingleHostReverseProxy(&url.URL{
 				Scheme: "http",
 				Host:   fmt.Sprintf("%s:%s", node.Address, node.Port),
 			})
-
+			
 			proxy.ServeHTTP(writer, request)
+			// print the increment request count of the node
+			fmt.Println("request count of node: ", roundRobinBalancer.requestCount[node.Id],"from node: ", node.Id)
 
 			return
 
 		}
 	case http.MethodPut:
 		{
+			// Print on Function routeOperation MethodPut
+			fmt.Println("routeOperation MethodPut")
+
 			var target protocol.ShoppingListOperation
 
 			decoded, target := protocol.DecodeRequestBody(writer, request.Body, target)
@@ -138,16 +225,41 @@ func routeOperation(writer http.ResponseWriter, request *http.Request) {
 				return
 			}
 
+			
+
+			
+			// the healthyNodes are the nodes that are alive and they by order on the healthyNodes array from the ring
 			healthyNodes := ring.GetHealthyNodesForID(target.ListId)
+			if len(healthyNodes) == 0 {
+				writer.WriteHeader(http.StatusNotFound)
+				return
+			}
+			// so we get the first node from the healthyNodes array ( the first on encounter on the ring for list_id)
+			
+			consistentHashNode := healthyNodes[0]
+			
+			
+			fmt.Println("list_id to get the node using consistent hashing: ", target.ListId)
+			
+			fmt.Println("Getted consistentHashNode: ", consistentHashNode)
+			fmt.Println("Getted consistentHashNode: ", healthyNodes[0])
+			//print the healthyNodes
+			// enter the bounded consistent hashing selection on SelectNodeFromList
+			
+			cons_hash_req_count_node := roundRobinBalancer.requestCount[healthyNodes[0].Id]
+			// print the request count of the node
+			fmt.Println("request count of node: ", cons_hash_req_count_node,"from node: ", healthyNodes[0].Id)
 
-			node := roundRobinBalancer.SelectNodeFromList(healthyNodes)
-
+			node := roundRobinBalancer.SelectNodeFromList(healthyNodes,threshold,cons_hash_req_count_node)
+			roundRobinBalancer.IncrementRequestCount(node.Id)
 			proxy := httputil.NewSingleHostReverseProxy(&url.URL{
 				Scheme: "http",
 				Host:   fmt.Sprintf("%s:%s", node.Address, node.Port),
 			})
-
+			
 			proxy.ServeHTTP(writer, request)
+			// print the increment request count of the node
+			fmt.Println("request count of node: ", roundRobinBalancer.requestCount[node.Id],"from node: ", node.Id)
 
 			return
 		}
@@ -227,6 +339,8 @@ func addNode(writer http.ResponseWriter, request *http.Request) {
 			jsonData := encodeRingState()
 
 			roundRobinBalancer.AddNode(target["address"], target["port"])
+			// adding node initially in map of request count
+			roundRobinBalancer.IncrementRequestCount(target["address"]+":"+target["port"])
 
 			writer.Header().Set("Content-Type", "application/json")
 			writer.WriteHeader(http.StatusAccepted)
@@ -263,7 +377,7 @@ func sendToRoundRobinBalancer(address string, port string) {
 			nodes = append(nodes, value)
 		}
 	}
-	node := roundRobinBalancer.SelectNodeFromList(nodes)
+	node := roundRobinBalancer.SelectNodeFromListForAddNode(nodes)
 
 	target := make(map[string]string)
 	target["address"] = address
@@ -287,3 +401,5 @@ func sendToRoundRobinBalancer(address string, port string) {
 		return
 	}
 }
+
+

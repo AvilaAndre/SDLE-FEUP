@@ -100,7 +100,10 @@ func handleGossipPushPullAntiEntropyRequest(w http.ResponseWriter, r *http.Reque
 	 
 	 */
 	case http.MethodPost:
-	{
+	{	
+		//Print pull/Post method request received from sender node with dot context for anti-entropy push-pull mechanism
+		fmt.Println("pull/Post method request received from sender node with dot context for anti-entropy push-pull mechanism")
+
 		var incomingListIdDotContents readChanStructForDotContext
 		
 		decoded, incomingListIdDotContents := protocol.DecodeRequestBody(w, r.Body, incomingListIdDotContents)
@@ -109,20 +112,26 @@ func handleGossipPushPullAntiEntropyRequest(w http.ResponseWriter, r *http.Reque
 			return
 		}
 		//Print the incomingListIdDotContents that comes in json format
-		fmt.Printf("incomingListIdDotContents received for anti-entropy push-pull mechanism: %s", fmt.Sprintf("%v", incomingListIdDotContents))
+		fmt.Println("incomingListIdDotContents received for anti-entropy push-pull mechanism: ", incomingListIdDotContents.Content)
 
 		
 		//TODO: check if here we can use/have access serverPort and serverHostname
 		// Get the local node's list_id_dot_contents
 		localListIdDotContentsChan := make(chan readChanStructForDotContext)
 
-    	// Call the function with the channel
-    	go sendReadAndWaitDotContext(serverHostname, serverPort, localListIdDotContentsChan)
+		// Call the function with the channel
+		// Print receiver node have serverPort and serverHostname
+		fmt.Println("serverPort:  of receiver node: ",serverPort)
+
+		go sendReadAndWaitDotContext(serverHostname, serverPort, localListIdDotContentsChan)
+		
 		localListIdDotContents := <-localListIdDotContentsChan
+		//print localListIdDotContents
+		fmt.Println("localListIdDotContents received for anti-entropy push-pull mechanism: ", localListIdDotContents.Content)
 		if localListIdDotContents.Code > 1 {
 			//TODO: check if this is the best approach !
 			//write message to log
-			log.Printf("Error getting localListIdDotContents: %s",fmt.Sprintf("%v",localListIdDotContents))
+			log.Printf("Dont sender node dont have localListIdDotContents: %s",fmt.Sprintf("%v",localListIdDotContents))
 			
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -133,6 +142,8 @@ func handleGossipPushPullAntiEntropyRequest(w http.ResponseWriter, r *http.Reque
 		for listId, incomingHash := range incomingListIdDotContents.Content {
 			localHash, exists := localListIdDotContents.Content[listId]
 			if exists && localHash != incomingHash {
+				//Print the listId -> hash(dot context) exists and is different from hash of the sender node
+				fmt.Printf("listId %s exists and have different hash(dot context) comparing to the sender node",listId)
 				//TODO: check if here we can use/have access to serverPort and serverHostname
 				payload := map[string]string{
 					"list_id": listId,
@@ -153,10 +164,20 @@ func handleGossipPushPullAntiEntropyRequest(w http.ResponseWriter, r *http.Reque
 				//Print the shopping_list that comes in json format
 				fmt.Printf("shopping_id %s received for anti-entropy push-pull mechanism, that node doenst have and will check if this list fits on any of his virtual nodes : ",listId)
 				//TODO: check if this is the best approach !
-				//TODO: check if the node handling Post request , have vnodes corresponding to the list_id
-				//TODO: for now: continue
+				// Hinted off solves this problem!!!
+				
 				continue
 			}
+		}
+		//Print the differingLists
+		fmt.Printf("differingLists from receiver for response for anti entropy: %s", fmt.Sprintf("%v", differingLists))
+		// if differingLists is empty, return
+		if len(differingLists) == 0 {
+			w.WriteHeader(http.StatusOK)
+			// print after sending dot context to receiver node, no lists exists with different hash(dot context)
+			fmt.Println("after sending dot context to receiver node, no common lists exists with different hash(dot context)!!!")
+			w.Write([]byte("No differing lists"))
+			return
 		}
 		// send the differingLists
 		differingListsMarshaled, err := json.Marshal(differingLists)
@@ -167,14 +188,15 @@ func handleGossipPushPullAntiEntropyRequest(w http.ResponseWriter, r *http.Reque
 		}
 		//Push moment to the sender node in the antiEntropy mechanism
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
 		w.Write(differingListsMarshaled)
+		
 	}
 
 	//When sender node do push -> Sends the new merged lists to the receiver node
 	case http.MethodPut:
 		{
 			var incoming_merged_lists map[string]*crdt_go.ShoppingList
+			
 			success, incoming_lists := protocol.DecodeRequestBody(w, r.Body, incoming_merged_lists)
 			if !success {
 				w.WriteHeader(http.StatusBadRequest)
@@ -232,6 +254,8 @@ func storeMergedList(list_id string, merged_list *crdt_go.ShoppingList) bool {
 	}
 	
 	writeChan := make(chan bool)
+	//Print
+	fmt.Printf("mergedListPayload on sender node side received for anti-entropy push-pull mechanism: %s", fmt.Sprintf("%v", mergedListPayload))
 	go sendWriteAndWait(serverHostname, serverPort, mergedListPayload, writeChan)
 
 	writeChanResult := <-writeChan

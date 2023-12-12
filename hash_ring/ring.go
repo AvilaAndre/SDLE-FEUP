@@ -279,6 +279,10 @@ func (ring *HashRing) GetNodeForIdFromRing(id string) *NodeInfo {
 		ring.lock.Unlock()
 		return nil
 	}
+	//I want to print this "avl_node: ", avl_node.Value
+	fmt.Println("avl_node/GetNodeForIdFromRing: ", avl_node.Value)
+
+
 
 	node_read := ring.nodes[avl_node.Value]
 

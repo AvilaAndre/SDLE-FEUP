@@ -114,14 +114,14 @@
         await invoke("add_item_to_list", {
             listId: data.list_info.list_id,
             name: nextItemValue,
-            qtd: 1,
+            qtd: 0,
         })
             .then((value: any) => {
                 if (value) {
                     data.items.push({
                         name: nextItemValue,
                         checked: false,
-                        qtd: 1,
+                        qtd: 0, //TODO: check this ?
                     });
                     // to activate svelte's reactivity
                     data.items = data.items;

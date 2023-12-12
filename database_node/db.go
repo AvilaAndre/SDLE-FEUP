@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -46,26 +47,36 @@ func (db *DatabaseInstance) initialize(address string, port string) {
 
 func (db *DatabaseInstance) updateOrSetShoppingList(key string, list *crdt_go.ShoppingList) bool {
 	readList, listExists := db.getShoppingList(key)
-
+	log.Println("List/dotContext exist?", listExists," for key ", key)
 	if listExists {
-
+		//print read
+		log.Println("Existed id ", readList)
+		log.Println("Incoming id : ", list)
 		// merge and store
-		readList.Merge(list)
+		//Check first if the incoming list key is lists_id_dot_contents
+		if key != "lists_id_dot_contents" {
+
+			readList.Merge(list)
+
+		}
+
 		crdtBytes, err := json.Marshal(readList)
 
 		if err != nil {
+			//print error
+			log.Println("Error marshalling list", err)
 			return false
 		}
 
 		list_store_res := db.storeValue([]byte(key), crdtBytes)
 		dot_context_hash, err := hashOfDotContext(readList.AwSet)
-		//Check if AWSET is empty, then hash is empty
-		if readList.AwSet == nil {
-			dot_context_hash = ""
+		if dot_context_hash == "" {
+			fmt.Printf("Error computing hash of AWSet context: %v", err)
+			return false
 		}
 
 		if err != nil {
-			log.Printf("Error computing hash of AWSet context: %s", err)
+			log.Printf("Error computing hash of AWSet context: %v", err)
 			return false
 		}
 		// TODO: Check error here
@@ -91,7 +102,9 @@ func (db *DatabaseInstance) updateOrSetShoppingList(key string, list *crdt_go.Sh
 			log.Printf("Error computing hash of AWSet context: %s", err)
 			return false
 		}
-
+		if list.AwSet == nil {
+			return true // TODO: CHeck this
+		}
 		list_store_context_res := db.updateOrSetListsIdDotContents(key, dot_context_hash)
 		if !list_store_context_res {
 			log.Printf("Error updating lists_id_dot_contents for key %s", key)
@@ -126,7 +139,7 @@ func (db *DatabaseInstance) getShoppingList(key string) (*crdt_go.ShoppingList, 
 * Stores a value into the database
  */
 func (db *DatabaseInstance) storeValue(key []byte, value []byte) bool {
-	log.Println("wrote list", string(key))
+	log.Println("wrote list or list_ids_dot_contents", string(key))
 
 	db.lock.Lock()
 
@@ -151,19 +164,19 @@ func (db *DatabaseInstance) storeValue(key []byte, value []byte) bool {
 * Gets a value from the database
  */
 func (db *DatabaseInstance) getValue(key []byte) ([]byte, bool) {
-	log.Println("read list", string(key))
-	db.lock.Lock()
-	defer db.lock.Unlock()
-	data, err := db.conn.Fetch(key)
+	log.Println("read somtething on getValue function in db.go", string(key))
 
+	data, err := db.conn.Fetch(key)
+	
 	if err != nil {
 		return []byte{}, false
 	}
-
+	
 	if db.conn.Commit() != nil {
 		return []byte{}, false
 	}
-
+	log.Println("This is the result of get Value", string(data))
+	
 	return data, true
 }
 
@@ -171,9 +184,9 @@ func (db *DatabaseInstance) getValue(key []byte) ([]byte, bool) {
 * Deletes a shopping list from the database
  */
 func (db *DatabaseInstance) deleteList(key string) bool {
-	db.lock.Lock()
+	
 	success := db.deleteValue([]byte(key))
-	db.lock.Unlock()
+	
 
 	return success
 }
@@ -183,7 +196,7 @@ func (db *DatabaseInstance) deleteList(key string) bool {
  */
 func (db *DatabaseInstance) deleteValue(key []byte) bool {
 	log.Println("delete list", string(key))
-
+	
 	if db.conn.Delete([]byte(key)) != nil {
 		return false
 	}
@@ -191,7 +204,7 @@ func (db *DatabaseInstance) deleteValue(key []byte) bool {
 	if db.conn.Commit() != nil {
 		return false
 	}
-
+	
 	return true
 }
 
@@ -201,20 +214,34 @@ func (db *DatabaseInstance) updateOrSetListsIdDotContents(key string, contextHas
 	specialKey := []byte("lists_id_dot_contents")
 
 	currentContentsBytes, readSuccess := db.getValue(specialKey)
-	var currentContents map[string]string
-	if readSuccess {
-		if err := json.Unmarshal(currentContentsBytes, &currentContents); err != nil {
-			log.Printf("Error unmarshaling current lists_id_dot_contents: %s", err)
+	var currentContents map[string]string  = make(map[string]string)
+	if !readSuccess {
+		// Print This: If the lists_id_dot_contents record doesn't exist, create it to store list_id -> context_hash mappings
+		currentContents[key] = contextHash
+		fmt.Printf("If the lists_id_dot_contents record doesn't exist, create it to store list_id -> context_hash mappings, the_list_id_dot_context is: %s", currentContents)
+
+
+
+	}else{
+		err := json.Unmarshal(currentContentsBytes, &currentContents)
+		if err != nil {
+			log.Printf("Error unmarshaling lists_id_dot_contents: %s", err)
 			return false
-		}
-	} else {
-		// Initialize if the record does not exist
-		currentContents = make(map[string]string)
+		} 
+		//print the currentContents
+		currentContents[key] = contextHash
+		fmt.Printf("updateOrSetListsIdDotContents: the_list_id_dot_context is: %s", currentContents)
+	
+		
+	
+		
 	}
 
-	// Update or set the entry for the current shopping list with the context hash
-	currentContents[key] = contextHash
 
+
+	// Update or set the entry for the current shopping list with the context hash
+	//Print the currentContents
+	fmt.Printf("updateOrSetListsIdDotContents: the_list_id_dot_context is: %s", currentContents)
 	updatedContentsBytes, err := json.Marshal(currentContents) //TODO: check if this is correct
 	if err != nil {
 		log.Printf("Error marshaling updated lists_id_dot_contents: %s", err)
@@ -247,21 +274,27 @@ func (db *DatabaseInstance) GetAllListsIdDotContents() (map[string]string, error
 //Usefull functions for future work
 
 func hashOfDotContext(awset *crdt_go.AWSet) (string, error) {
-	if awset == nil {
-		return "", nil
-	}
+	// Check if awset is nil
+    if awset == nil {
+        return "", errors.New("awset is nil")
+    }
 
-	// Serialize the dot_context item to JSON
-	jsonData, err := json.Marshal(awset.Context)
-	if err != nil {
-		return "", err
-	}
+    // Check if awset.Context is nil
+    if awset.Context == nil {
+        return "", errors.New("awset.Context is nil")
+    }
 
-	// Compute the SHA-256 hash of the JSON string
-	hash := sha256.Sum256(jsonData)
+    // Serialize the dot_context item to JSON
+    jsonData, err := json.Marshal(awset.Context)
+    if err != nil {
+        return "", err
+    }
 
-	// Convert the hash to a hexadecimal string
-	hexHash := fmt.Sprintf("%x", hash)
+    // Compute the SHA-256 hash of the JSON string
+    hash := sha256.Sum256(jsonData)
 
-	return hexHash, nil
+    // Convert the hash to a hexadecimal string
+    hexHash := fmt.Sprintf("%x", hash)
+
+    return hexHash, nil
 }

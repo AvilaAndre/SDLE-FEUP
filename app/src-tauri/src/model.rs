@@ -80,7 +80,7 @@ pub struct SimpleShoppingList {
     pub list_id: String,
     pub title: String,
     pub shared: bool,
-    pub items: HashMap<String, SimpleListItem>,
+    pub items: HashMap<String, SimpleListItem>,//TODO: add purchased and needed 
 }
 
 pub trait Simplify {
